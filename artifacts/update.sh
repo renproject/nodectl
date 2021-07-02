@@ -1,35 +1,44 @@
 #!/bin/sh
 
 main(){
+  # Update this when minimum terraform version is changed.
+  min_terraform_ver="1.0.0"
+  cur_terraform_ver="1.0.1"
 
-  # Check if darknode has been installed
-  if ! check_cmd darknode; then
-    echo "cannot find the darknode-cli"
-    err "please install darknode-cli first"
+  # Check if nodectl has been installed
+  if ! check_cmd nodectl; then
+    echo "cannot find the nodectl"
+    err "please install nodectl first"
   fi
 
-  echo "Updating Darknode CLI..."
+  echo "Updating nodectl ..."
 
   # Check terraform version
-  terraform_ver="0.12.24"
   if check_cmd terraform; then
     version="$(terraform --version | grep 'Terraform v')"
+    major="$(echo $version | cut -d. -f1)"
     minor="$(echo $version | cut -d. -f2)"
     patch="$(echo $version | cut -d. -f3)"
-
-    if [ "$minor" -lt 12 ]; then
-      install_terraform $terraform_ver
-    elif [ "$patch" -lt 24 ]; then
-      install_terraform $terraform_ver
+    requiredMajor="$(echo $min_terraform_ver | cut -d. -f1)"
+    requiredMinor="$(echo $min_terraform_ver | cut -d. -f2)"
+    requiredPatch="$(echo $min_terraform_ver | cut -d. -f3)"
+    if [ "$major" -lt "$requiredMajor" ]; then
+      err "Please upgrade your terraform to version above 1.0.0"
+    fi
+    if [ "$minor" -lt "$requiredMinor" ]; then
+      err "Please upgrade your terraform to version above 1.0.0"
+    fi
+    if [ "$patch" -lt "$requiredPatch" ]; then
+      err "Please upgrade your terraform to version above 1.0.0"
     fi
   else
-    install_terraform $terraform_ver
+    install_terraform $cur_terraform_ver
   fi
   progressBar 40 100
 
   # Update the binary
-  current=$(darknode --version | grep "darknode version" | cut -d ' ' -f 3)
-  latest=$(get_latest_release "renproject/darknode-cli")
+  current=$(nodectl --version | grep "nodectl version" | cut -d ' ' -f 3)
+  latest=$(get_latest_release "renproject/nodectl")
   vercomp $current $latest
   if [ "$?" -eq "2" ]; then
     ostype="$(uname -s | tr '[:upper:]' '[:lower:]')"
@@ -38,14 +47,14 @@ main(){
       cputype="amd64"
     fi
 
-    darknode_url="https://www.github.com/renproject/darknode-cli/releases/latest/download/darknode_${ostype}_${cputype}"
-    ensure downloader "$darknode_url" "$HOME/.darknode/bin/darknode"
-    ensure chmod +x "$HOME/.darknode/bin/darknode"
+    nodectl_url="https://www.github.com/renproject/nodectl/releases/latest/download/nodectl_${ostype}_${cputype}"
+    ensure downloader "$nodectl_url" "$HOME/.nodectl/bin/nodectl"
+    ensure chmod +x "$HOME/.nodectl/bin/nodectl"
 
     progressBar 100 100
     sleep 1
     echo ''
-    echo 'Done! Your darknode-cli has been updated.'
+    echo "Done! Your 'nodectl' has been updated to $latest."
   else
     progressBar 100 100
     echo ''
@@ -55,17 +64,17 @@ main(){
 
 install_terraform(){
   terraform_ver="$1"
-  mkdir -p $HOME/.darknode/bin
+  mkdir -p $HOME/.nodectl/bin
   ostype="$(uname -s | tr '[:upper:]' '[:lower:]')"
   cputype="$(uname -m | tr '[:upper:]' '[:lower:]')"
   if [ $cputype = "x86_64" ];then
       cputype="amd64"
   fi
   terraform_url="https://releases.hashicorp.com/terraform/${terraform_ver}/terraform_${terraform_ver}_${ostype}_${cputype}.zip"
-  ensure downloader "$terraform_url" "$HOME/.darknode/bin/terraform.zip"
-  ensure unzip -qq "$HOME/.darknode/bin/terraform.zip" -d "$HOME/.darknode/bin"
-  ensure chmod +x "$HOME/.darknode/bin/terraform"
-  rm "$HOME/.darknode/bin/terraform.zip"
+  ensure downloader "$terraform_url" "$HOME/.nodectl/bin/terraform.zip"
+  ensure unzip -qq "$HOME/.nodectl/bin/terraform.zip" -d "$HOME/.nodectl/bin"
+  ensure chmod +x "$HOME/.nodectl/bin/terraform"
+  rm "$HOME/.nodectl/bin/terraform.zip"
 }
 
 # Source: https://sh.rustup.rs

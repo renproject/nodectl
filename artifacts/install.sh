@@ -4,18 +4,19 @@ set -u
 
 main() {
     # Update this when minimum terraform version is changed.
-    terraform_ver="0.12.24"
+    min_terraform_ver="1.0.0"
+    cur_terraform_ver="1.0.1"
 
-    # Exit if `darknode` is already installed
-    if check_cmd darknode; then
-        err "darknode-cli already installed on this machine"
+    # Exit if `nodectl` is already installed
+    if check_cmd nodectl; then
+        err "nodectl already installed on this machine"
     fi
 
     # Start installing
-    echo "Installing Darknode CLI..."
+    echo "Installing nodectl ..."
 
     # Check prerequisites
-    prerequisites $terraform_ver || return 1
+    prerequisites $min_terraform_ver || return 1
 
     # Check system information
     ostype="$(uname -s | tr '[:upper:]' '[:lower:]')"
@@ -24,30 +25,29 @@ main() {
     progressBar 10 100
 
     # Initialization
-    ensure mkdir -p "$HOME/.darknode/darknodes"
-    ensure mkdir -p "$HOME/.darknode/bin"
+    ensure mkdir -p "$HOME/.nodectl/nodes"
+    ensure mkdir -p "$HOME/.nodectl/bin"
 
     # Install terraform
     if [ $cputype = "x86_64" ];then
       cputype="amd64"
     fi
     if ! check_cmd terraform; then
-        terraform_url="https://releases.hashicorp.com/terraform/${terraform_ver}/terraform_${terraform_ver}_${ostype}_${cputype}.zip"
-        ensure downloader "$terraform_url" "$HOME/.darknode/bin/terraform.zip"
-
-        ensure unzip -qq "$HOME/.darknode/bin/terraform.zip" -d "$HOME/.darknode/bin"
-        ensure chmod +x "$HOME/.darknode/bin/terraform"
-        rm "$HOME/.darknode/bin/terraform.zip"
+        terraform_url="https://releases.hashicorp.com/terraform/${cur_terraform_ver}/terraform_${cur_terraform_ver}_${ostype}_${cputype}.zip"
+        ensure downloader "$terraform_url" "$HOME/.nodectl/bin/terraform.zip"
+        ensure unzip -qq "$HOME/.nodectl/bin/terraform.zip" -d "$HOME/.nodectl/bin"
+        ensure chmod +x "$HOME/.nodectl/bin/terraform"
+        rm "$HOME/.nodectl/bin/terraform.zip"
     fi
     progressBar 50 100
 
-    # Download darknode binary
-    darknode_url="https://www.github.com/renproject/darknode-cli/releases/latest/download/darknode_${ostype}_${cputype}"
-    ensure downloader "$darknode_url" "$HOME/.darknode/bin/darknode"
-    ensure chmod +x "$HOME/.darknode/bin/darknode"
+    # Download nodectl binary
+    nodectl_url="https://www.github.com/renproject/nodectl/releases/latest/download/nodectl_${ostype}_${cputype}"
+    ensure downloader "$nodectl_url" "$HOME/.nodectl/bin/nodectl"
+    ensure chmod +x "$HOME/.nodectl/bin/nodectl"
     progressBar 90 100
 
-    # Try adding the darknode directory to PATH
+    # Try adding the nodectl directory to PATH
     add_path
     progressBar 100 100
     sleep 1
@@ -55,14 +55,14 @@ main() {
     # Output success message
     printf "\n\n"
     printf 'If you are using a custom shell, make sure you update your PATH.\n'
-    printf "     export PATH=\$PATH:\$HOME/.darknode/bin"
+    printf "     export PATH=\$PATH:\$HOME/.nodectl/bin"
     printf "\n\n"
     printf "Done! Restart terminal and run the command below to begin.\n"
     printf "\n"
-    printf "darknode up --help\n"
+    printf "nodectl --help\n"
 }
 
-# Check prerequisites for installing darknode-cli.
+# Check prerequisites for installing nodectl.
 prerequisites() {
     # Check commands
     need_cmd uname
@@ -89,22 +89,26 @@ prerequisites() {
     # If so, make sure it's newer than required version
     if check_cmd terraform; then
         version="$(terraform --version | grep 'Terraform v')"
+        major="$(echo $version | cut -d. -f1)"
         minor="$(echo $version | cut -d. -f2)"
         patch="$(echo $version | cut -d. -f3)"
+        requiredMajor="$(echo $1 | cut -d. -f1)"
         requiredMinor="$(echo $1 | cut -d. -f2)"
         requiredPatch="$(echo $1 | cut -d. -f3)"
 
-        if [ "$minor" -lt "$requiredMinor" ]; then
-          err "Please upgrade your terraform to version above 0.12.24"
+        if [ "$major" -lt "$requiredMajor" ]; then
+          err "Please upgrade your terraform to version above 1.0.0"
         fi
-
+        if [ "$minor" -lt "$requiredMinor" ]; then
+          err "Please upgrade your terraform to version above 1.0.0"
+        fi
         if [ "$patch" -lt "$requiredPatch" ]; then
-          err "Please upgrade your terraform to version above 0.12.24"
+          err "Please upgrade your terraform to version above 1.0.0"
         fi
     fi
 }
 
-# Check if darknode-cli supports given system and architecture.
+# Check if nodectl supports given system and architecture.
 check_architecture() {
     ostype="$1"
     cputype="$2"
@@ -128,22 +132,22 @@ check_architecture() {
 
 # Add the binary path to $PATH.
 add_path(){
-    if ! check_cmd darknode; then
+    if ! check_cmd nodectl; then
         if [ -f "$HOME/.zprofile" ] ; then
             echo "" >> "$HOME/.zprofile"
-            echo 'export PATH=$PATH:$HOME/.darknode/bin' >> "$HOME/.zprofile"
+            echo 'export PATH=$PATH:$HOME/.nodectl/bin' >> "$HOME/.zprofile"
         fi
         if [ -f "$HOME/.bash_profile" ] ; then
             echo "" >> "$HOME/.bash_profile"
-            echo 'export PATH=$PATH:$HOME/.darknode/bin' >> "$HOME/.bash_profile"
+            echo 'export PATH=$PATH:$HOME/.nodectl/bin' >> "$HOME/.bash_profile"
         fi
         if [ -f "$HOME/.cshrc" ] ; then
             echo "" >> "$HOME/.cshrc"
-            echo 'setenv PATH $PATH\:$HOME/.darknode/bin' >> "$HOME/.cshrc"
+            echo 'setenv PATH $PATH\:$HOME/.nodectl/bin' >> "$HOME/.cshrc"
         fi
 
         echo "" >> "$HOME/.profile"
-        echo 'export PATH=$PATH:$HOME/.darknode/bin' >> "$HOME/.profile"
+        echo 'export PATH=$PATH:$HOME/.nodectl/bin' >> "$HOME/.profile"
     fi
 }
 
