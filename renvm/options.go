@@ -12,7 +12,7 @@ import (
 
 // Default options.
 var (
-	DefaultHome     = filepath.Join(os.Getenv("HOME"), ".node")
+	DefaultHome     = filepath.Join(os.Getenv("HOME"), ".darknode")
 	DefaultPeers    = []wire.Address{}
 	DefaultHost     = "0.0.0.0"
 	DefaultPort     = uint16(18514)
@@ -103,17 +103,16 @@ func NewOptions(network multichain.Network) Options {
 	return Options{
 		Home:      DefaultHome,
 		PrivKey:   id.NewPrivKey(),
+		// TODO: NEED TO THINK ABOUT HOW WE WANT TO DO THIS
 		Peers:     DefaultPeers,
 		Host:      DefaultHost,
 		Port:      DefaultPort,
 		Simulate:  DefaultSimulate,
 		Profile:   DefaultProfile,
 		Network:   network,
-		Chains:    nil, // todo
-		Selectors: nil, // todo
+		// TODO: Need to use our multichain infra
+		Chains:    nil,
+		// TODO: Same as the Peers.
+		Selectors: nil,
 	}
-}
-
-func NewGenesis() {
-
 }

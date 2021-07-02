@@ -48,7 +48,7 @@ type Provider interface {
 	// Name of the Provider
 	Name() string
 
-	// Deploy the Ren node with from this provider
+	// Deploy darknode with from this provider
 	Deploy(ctx *cli.Context) error
 }
 
@@ -122,7 +122,7 @@ func validateCommonParams(ctx *cli.Context) error {
 	return nil
 }
 
-// initialize files for deploying a node
+// initialize files for deploying a darknode
 func initialize(ctx *cli.Context) error {
 	name := ctx.String("name")
 	path := util.NodePath(name)

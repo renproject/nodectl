@@ -13,14 +13,14 @@ import (
 func App() *cli.App {
 	app := cli.NewApp()
 	app.Name = "nodectl"
-	app.Usage = "A command-line tool for managing RenVM nodes."
+	app.Usage = "A command-line tool for managing Darknodes."
 	app.EnableBashCompletion = true
 
 	// Define sub-commands
 	app.Commands = []*cli.Command{
 		{
 			Name:  "up",
-			Usage: "Deploy a new Ren node",
+			Usage: "Deploy a new Darknode",
 			Flags: []cli.Flag{
 				// General
 				NameFlag, TagsFlag, NetworkFlag, ConfigFlag,
@@ -42,7 +42,7 @@ func App() *cli.App {
 		},
 		{
 			Name:    "destroy",
-			Usage:   "Destroy one of your Ren node",
+			Usage:   "Destroy one of your Darknode",
 			Aliases: []string{"down"},
 			Flags:   []cli.Flag{TagsFlag, ForceFlag},
 			Action: func(c *cli.Context) error {
@@ -61,7 +61,7 @@ func App() *cli.App {
 		{
 			Name:  "ssh",
 			Flags: []cli.Flag{},
-			Usage: "SSH into one of your Ren node",
+			Usage: "SSH into one of your Darknode",
 			Action: func(c *cli.Context) error {
 				name := c.Args().First()
 				if err := util.ValidateNodeName(name); err != nil {
@@ -72,13 +72,13 @@ func App() *cli.App {
 					return err
 				}
 				keyPath := filepath.Join(util.NodePath(name), "ssh_keypair")
-				return util.Run("ssh", "-i", keyPath, "node@"+ip, "-oStrictHostKeyChecking=no")
+				return util.Run("ssh", "-i", keyPath, "darknode@"+ip, "-oStrictHostKeyChecking=no")
 			},
 		},
 		{
 			Name:  "start",
 			Flags: []cli.Flag{TagsFlag},
-			Usage: "Start a single node or a set of nodes by its tag",
+			Usage: "Start a single Darknode or a set of Darknodes by its tag",
 			Action: func(c *cli.Context) error {
 				return updateServiceStatus(c, "start")
 			},
@@ -86,7 +86,7 @@ func App() *cli.App {
 		{
 			Name:  "stop",
 			Flags: []cli.Flag{TagsFlag},
-			Usage: "Stop a single node or a set of nodes by its tag",
+			Usage: "Stop a single Darknode or a set of Darknodes by its tag",
 			Action: func(c *cli.Context) error {
 				return updateServiceStatus(c, "stop")
 			},
@@ -94,7 +94,7 @@ func App() *cli.App {
 		{
 			Name:  "restart",
 			Flags: []cli.Flag{TagsFlag},
-			Usage: "Restart a single node or a set of nodes by its tag",
+			Usage: "Restart a single Darknode or a set of Darknodes by its tag",
 			Action: func(c *cli.Context) error {
 				return updateServiceStatus(c, "restart")
 			},

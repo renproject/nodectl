@@ -9,9 +9,9 @@ import (
 	"github.com/renproject/nodectl"
 )
 
-// This will be populated on build
-// TODO : HOW WE HANDLE THE VERSION,
-var binaryVersion = "undefined"
+
+// BinaryVersion should be populated when building.
+var BinaryVersion = ""
 
 // Randomize the seed.
 func init() {
@@ -21,7 +21,7 @@ func init() {
 func main() {
 	// init the app
 	app := nodectl.App()
-	app.Version = binaryVersion
+	app.Version = BinaryVersion
 
 	// // Fetch latest release and check if our version is behind.
 	// checkUpdates(binaryVersion)

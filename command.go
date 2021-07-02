@@ -13,14 +13,14 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-// Commands for different actions to the RenVM nodes.
+// Commands for different actions to darknodes.
 var (
-	ActionStart   = "systemctl --user start node"
-	ActionStop    = "systemctl --user stop node"
-	ActionRestart = "systemctl --user restart node"
+	ActionStart   = "systemctl --user start darknode"
+	ActionStop    = "systemctl --user stop darknode"
+	ActionRestart = "systemctl --user restart darknode"
 )
 
-// updateServiceStatus can update status of the node service.
+// updateServiceStatus can update status of the darknode service.
 func updateServiceStatus(ctx *cli.Context, cmd string) error {
 	tags := ctx.String("tags")
 	name := ctx.Args().First()
@@ -38,7 +38,7 @@ func updateServiceStatus(ctx *cli.Context, cmd string) error {
 		panic(fmt.Sprintf("invalid switch command = %v", cmd))
 	}
 
-	// Parse the names of the node we want to operate
+	// Parse the names of the darknode we want to operate
 	nodes, err := util.ParseNodesFromNameAndTags(name, tags)
 	if err != nil {
 		return err
@@ -49,7 +49,7 @@ func updateServiceStatus(ctx *cli.Context, cmd string) error {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			errs[i] = util.RemoteRun(nodes[i], script, "node")
+			errs[i] = util.RemoteRun(nodes[i], script, "darknode")
 			if errs[i] == nil {
 				color.Green("[%v] has been %v.", nodes[i], message)
 			} else {
@@ -61,8 +61,8 @@ func updateServiceStatus(ctx *cli.Context, cmd string) error {
 	return util.HandleErrs(errs)
 }
 
-// listAllNodes will display detail information of your RenVM node.
-// Results can be filtered by the tags.
+// listAllNodes will display detail information of your darknodes. Tags can be
+// provided to only show darknodes have the tags
 func listAllNodes(ctx *cli.Context) error {
 	tags := ctx.String("tags")
 	nodesNames, err := util.GetNodesByTags(tags)
@@ -70,7 +70,7 @@ func listAllNodes(ctx *cli.Context) error {
 		return err
 	}
 
-	// Fetch nodes details in parallel
+	// Fetch darknodes details in parallel
 	wg := new(sync.WaitGroup)
 	infos := make([]NodeInfo, len(nodesNames))
 	errs := make([]error, len(nodesNames))
@@ -147,7 +147,7 @@ func GetNodeInfo(name string) (NodeInfo, error) {
 		return NodeInfo{}, nil
 	}
 
-	// TODO : GET THE NODE ID AND ETH ADDRESS
+	// TODO : GET THE NODE ID, ETH ADDRESS AND VERSION
 	id := ""
 	ethAddr := ""
 	version := "0.0.0"

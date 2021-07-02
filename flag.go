@@ -9,15 +9,15 @@ import (
 var (
 	NameFlag = &cli.StringFlag{
 		Name:  "name",
-		Usage: "A unique human-readable `string` for identifying the RenVM node",
+		Usage: "A unique human-readable `string` for identifying the darknode",
 	}
 	TagsFlag = &cli.StringFlag{
 		Name:  "tags",
-		Usage: "Multiple human-readable comma separated `strings` for identifying groups of RenVM nodes",
+		Usage: "Multiple human-readable comma separated `strings` for identifying groups of darknodeS",
 	}
 	ConfigFlag = &cli.StringFlag{
 		Name:  "config",
-		Usage: "Config file for your RenVM node",
+		Usage: "Config file for your darknode",
 	}
 	NetworkFlag = &cli.StringFlag{
 		Name:        "network",
@@ -27,7 +27,7 @@ var (
 	}
 	VersionFlag = &cli.StringFlag{
 		Name:  "version",
-		Usage: "Version of RenVM node you want to upgrade to",
+		Usage: "Version of darknode you want to upgrade to",
 	}
 	DowngradeFlag = &cli.BoolFlag{
 		Name:  "downgrade",
@@ -41,7 +41,7 @@ var (
 	VerboseFlag = &cli.BoolFlag{
 		Name:    "verbose",
 		Aliases: []string{"v"},
-		Usage:   "Show additional details of nodes",
+		Usage:   "Show additional details of darknodes",
 	}
 )
 
@@ -49,7 +49,7 @@ var (
 var (
 	AwsFlag = &cli.BoolFlag{
 		Name:  provider.NameAws,
-		Usage: "AWS will be used to provision the RenVM node",
+		Usage: "AWS will be used to provision the darknode",
 	}
 	AwsAccessKeyFlag = &cli.StringFlag{
 		Name:  "aws-access-key",
@@ -81,7 +81,7 @@ var (
 var (
 	DoFlag = &cli.BoolFlag{
 		Name:  provider.NameDo,
-		Usage: "Digital Ocean will be used to provision the RenVM node",
+		Usage: "Digital Ocean will be used to provision the darknode",
 	}
 	DoTokenFlag = &cli.StringFlag{
 		Name:  "do-token",
@@ -104,7 +104,7 @@ var (
 var (
 	GcpFlag = &cli.BoolFlag{
 		Name:  provider.NameGcp,
-		Usage: "Google Cloud Platform will be used to provision the RenVM node",
+		Usage: "Google Cloud Platform will be used to provision the darknode",
 	}
 	GcpCredFlag = &cli.StringFlag{
 		Name:  "gcp-credentials",
