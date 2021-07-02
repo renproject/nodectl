@@ -9,7 +9,6 @@ import (
 	"github.com/renproject/nodectl"
 )
 
-
 // BinaryVersion should be populated when building.
 var BinaryVersion = ""
 

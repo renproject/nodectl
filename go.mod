@@ -3,6 +3,7 @@ module github.com/renproject/nodectl
 go 1.16
 
 require (
+	github.com/aws/aws-sdk-go v1.38.71 // indirect
 	github.com/digitalocean/godo v1.62.0 // indirect
 	github.com/fatih/color v1.12.0
 	github.com/google/go-github/v36 v36.0.0

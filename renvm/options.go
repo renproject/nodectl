@@ -101,17 +101,17 @@ type Fees struct {
 
 func NewOptions(network multichain.Network) Options {
 	return Options{
-		Home:      DefaultHome,
-		PrivKey:   id.NewPrivKey(),
+		Home:    DefaultHome,
+		PrivKey: id.NewPrivKey(),
 		// TODO: NEED TO THINK ABOUT HOW WE WANT TO DO THIS
-		Peers:     DefaultPeers,
-		Host:      DefaultHost,
-		Port:      DefaultPort,
-		Simulate:  DefaultSimulate,
-		Profile:   DefaultProfile,
-		Network:   network,
+		Peers:    DefaultPeers,
+		Host:     DefaultHost,
+		Port:     DefaultPort,
+		Simulate: DefaultSimulate,
+		Profile:  DefaultProfile,
+		Network:  network,
 		// TODO: Need to use our multichain infra
-		Chains:    nil,
+		Chains: nil,
 		// TODO: Same as the Peers.
 		Selectors: nil,
 	}

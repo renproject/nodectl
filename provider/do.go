@@ -92,18 +92,14 @@ func (p providerDO) validateRegionAndDroplet(ctx *cli.Context) (godo.Region, str
 	// Validate the given region and droplet type. Will use a random region
 	// if not specified.
 	if region == "" {
-		if droplet == DefaultDigitalOceanDroplet {
-			return regions[rand.Intn(len(regions))], droplet, nil
-		} else {
-			// Randomly select a region which has the given droplet size.
-			indexes := rand.Perm(len(regions))
-			for _, index := range indexes {
-				if util.StringInSlice(droplet, regions[index].Sizes) {
-					return regions[index], droplet, nil
-				}
+		// Randomly select a region which has the given droplet size.
+		indexes := rand.Perm(len(regions))
+		for _, index := range indexes {
+			if util.StringInSlice(droplet, regions[index].Sizes) {
+				return regions[index], droplet, nil
 			}
-			return godo.Region{}, "", fmt.Errorf("selected droplet [%v] not available across all regions", droplet)
 		}
+		return godo.Region{}, "", fmt.Errorf("selected droplet [%v] not available across all regions", droplet)
 	} else {
 		for _, r := range regions {
 			if r.Slug == region {
