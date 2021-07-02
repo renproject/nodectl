@@ -114,7 +114,7 @@ func connect(name, user string) (*ssh.Session, error) {
 	}
 
 	// Connect to the instance using ssh
-	ip, err := IP(name)
+	ip, err := NodeIP(name)
 	if err != nil {
 		return nil, err
 	}

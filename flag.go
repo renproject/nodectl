@@ -1,6 +1,7 @@
 package nodectl
 
 import (
+	"github.com/renproject/nodectl/provider"
 	"github.com/urfave/cli/v2"
 )
 
@@ -8,52 +9,39 @@ import (
 var (
 	NameFlag = &cli.StringFlag{
 		Name:  "name",
-		Usage: "A unique human-readable `string` for identifying the Darknode",
+		Usage: "A unique human-readable `string` for identifying the RenVM node",
 	}
 	TagsFlag = &cli.StringFlag{
 		Name:  "tags",
-		Usage: "Multiple human-readable comma separated `strings` for identifying groups of Darknodes",
+		Usage: "Multiple human-readable comma separated `strings` for identifying groups of RenVM nodes",
 	}
 	ConfigFlag = &cli.StringFlag{
 		Name:  "config",
-		Usage: "Config file for your Ren node",
-	}
-	ScriptFlag = &cli.StringFlag{
-		Name:  "script",
-		Usage: "A `string` containing commands you want the Darknode to run",
+		Usage: "Config file for your RenVM node",
 	}
 	NetworkFlag = &cli.StringFlag{
-		Name:  "network",
-		Value: "mainnet",
-		Usage: "Network of your Darknode (default: mainnet)",
-	}
-	AddressFlag = &cli.StringFlag{
-		Name:  "address",
-		Usage: "Ethereum address you want to withdraw the tokens to",
-	}
-	FileFlag = &cli.StringFlag{
-		Name:  "file",
-		Usage: "Path of the script file you want the Darknode to run",
+		Name:        "network",
+		Value:       "mainnet",
+		Usage:       "Network of RenVM you want to join",
+		DefaultText: "mainnet",
 	}
 	VersionFlag = &cli.StringFlag{
 		Name:  "version",
-		Usage: "Version of darknode you want to upgrade to",
-	}
-	InstanceFlag = &cli.StringFlag{
-		Name:  "instance",
-		Usage: "Instance type you want to resize to",
+		Usage: "Version of RenVM node you want to upgrade to",
 	}
 	DowngradeFlag = &cli.BoolFlag{
 		Name:  "downgrade",
 		Usage: "Force downgrading to an older version without interactive prompts",
 	}
 	ForceFlag = &cli.BoolFlag{
-		Name:  "force, f",
-		Usage: "Force destruction without interactive prompts",
+		Name:    "force",
+		Aliases: []string{"f"},
+		Usage:   "Force destruction without interactive prompts",
 	}
-	StorageFlag = &cli.IntFlag{
-		Name:  "storage",
-		Usage: "Size of the storage you want to upgrade to",
+	VerboseFlag = &cli.BoolFlag{
+		Name:    "verbose",
+		Aliases: []string{"v"},
+		Usage:   "Show additional details of nodes",
 	}
 )
 
@@ -61,7 +49,7 @@ var (
 var (
 	AwsFlag = &cli.BoolFlag{
 		Name:  provider.NameAws,
-		Usage: "AWS will be used to provision the Darknode",
+		Usage: "AWS will be used to provision the RenVM node",
 	}
 	AwsAccessKeyFlag = &cli.StringFlag{
 		Name:  "aws-access-key",
@@ -72,13 +60,15 @@ var (
 		Usage: "AWS secret `key` for programmatic access",
 	}
 	AwsRegionFlag = &cli.StringFlag{
-		Name:  "aws-region",
-		Usage: "An optional AWS region (default: random)",
+		Name:        "aws-region",
+		Usage:       "An optional AWS region",
+		DefaultText: "random",
 	}
 	AwsInstanceFlag = &cli.StringFlag{
-		Name:  "aws-instance",
-		Value: "t3.micro",
-		Usage: "An optional AWS EC2 instance type (default: t3.micro)",
+		Name:        "aws-instance",
+		Value:       "t3.micro",
+		Usage:       "An optional AWS EC2 instance type",
+		DefaultText: "t3.micro",
 	}
 	AwsProfileFlag = &cli.StringFlag{
 		Name:  "aws-profile",
@@ -91,40 +81,44 @@ var (
 var (
 	DoFlag = &cli.BoolFlag{
 		Name:  provider.NameDo,
-		Usage: "Digital Ocean will be used to provision the Darknode",
+		Usage: "Digital Ocean will be used to provision the RenVM node",
 	}
 	DoTokenFlag = &cli.StringFlag{
 		Name:  "do-token",
 		Usage: "Digital Ocean API token for programmatic access",
 	}
 	DoRegionFlag = &cli.StringFlag{
-		Name:  "do-region",
-		Usage: "An optional Digital Ocean region (default: random)",
+		Name:        "do-region",
+		Usage:       "An optional Digital Ocean region",
+		DefaultText: "random",
 	}
 	DoSizeFlag = &cli.StringFlag{
-		Name:  "do-droplet",
-		Value: "s-1vcpu-1gb",
-		Usage: "An optional Digital Ocean droplet size (default: s-1vcpu-1gb)",
+		Name:        "do-droplet",
+		Value:       provider.DefaultDigitalOceanDroplet,
+		Usage:       "An optional Digital Ocean droplet size",
+		DefaultText: "Basic 1CPU/1G/25G",
 	}
 )
 
 // Google cloud platform flags
 var (
-	// GcpFlag = &cli.BoolFlag{
-	// 	Name:  provider.NameGcp,
-	// 	Usage: "Google Cloud Platform will be used to provision the Darknode",
-	// }
+	GcpFlag = &cli.BoolFlag{
+		Name:  provider.NameGcp,
+		Usage: "Google Cloud Platform will be used to provision the RenVM node",
+	}
 	GcpCredFlag = &cli.StringFlag{
 		Name:  "gcp-credentials",
 		Usage: "Path of the Service Account credential file (JSON) to be used",
 	}
 	GcpMachineFlag = &cli.StringFlag{
-		Name:  "gcp-machine",
-		Value: "n1-standard-1",
-		Usage: "An optional Google Cloud machine type (default: n1-standard-1)",
+		Name:        "gcp-machine",
+		Value:       "n1-standard-1",
+		Usage:       "An optional Google Cloud machine type",
+		DefaultText: "n1-standard-1",
 	}
 	GcpRegionFlag = &cli.StringFlag{
-		Name:  "gcp-region",
-		Usage: "An optional Google Cloud Region (default: random)",
+		Name:        "gcp-region",
+		Usage:       "An optional Google Cloud Region",
+		DefaultText: "random",
 	}
 )

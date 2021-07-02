@@ -12,7 +12,7 @@ import (
 
 // Default options.
 var (
-	DefaultHome     = filepath.Join(os.Getenv("HOME"), ".darknode")
+	DefaultHome     = filepath.Join(os.Getenv("HOME"), ".node")
 	DefaultPeers    = []wire.Address{}
 	DefaultHost     = "0.0.0.0"
 	DefaultPort     = uint16(18514)
@@ -99,7 +99,7 @@ type Fees struct {
 	BurnFee pack.U64 `json:"burnFee"`
 }
 
-func NewOptions() Options{
+func NewOptions(network multichain.Network) Options {
 	return Options{
 		Home:      DefaultHome,
 		PrivKey:   id.NewPrivKey(),
@@ -108,8 +108,12 @@ func NewOptions() Options{
 		Port:      DefaultPort,
 		Simulate:  DefaultSimulate,
 		Profile:   DefaultProfile,
-		Network:   DefaultNetwork,
+		Network:   network,
 		Chains:    nil, // todo
 		Selectors: nil, // todo
 	}
+}
+
+func NewGenesis() {
+
 }

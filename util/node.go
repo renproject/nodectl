@@ -63,8 +63,8 @@ func ValidateNodeName(name string) error {
 // 	return addr.FromPublicKey(config.Keystore.Ecdsa.PublicKey), nil
 // }
 
-// IP gets the IP address of the node with given name.
-func IP(name string) (string, error) {
+// NodeIP gets the IP address of the node with given name.
+func NodeIP(name string) (string, error) {
 	if name == "" {
 		return "", ErrEmptyName
 	}
@@ -72,6 +72,17 @@ func IP(name string) (string, error) {
 	cmd := fmt.Sprintf("cd %v && terraform output ip", NodePath(name))
 	ip, err := CommandOutput(cmd)
 	return strings.TrimSpace(ip), err
+}
+
+// NodeProvider returns the provider of the node with given name.
+func NodeProvider(name string) (string, error) {
+	if name == "" {
+		return "", ErrEmptyName
+	}
+
+	cmd := fmt.Sprintf("cd %v && terraform output provider", NodePath(name))
+	provider, err := CommandOutput(cmd)
+	return strings.TrimSpace(provider), err
 }
 
 // Version gets the version of the software the darknode currently is running.
@@ -84,45 +95,15 @@ func Version(name string) string {
 	return strings.TrimSpace(string(version))
 }
 
-// // Network gets the network of the darknode.
-// func Network(name string) (renvm.Network, error) {
-// 	path := filepath.Join(NodePath(name), "config.json")
-// 	config, err := renvm.NewConfigFromJSONFile(path)
-// 	if err != nil {
-// 		return "", err
-// 	}
-// 	return config.Network, nil
-// }
-//
-// // RegisterUrl returns the url for registering a particular darknode.
-// func RegisterUrl(name string) (string, error) {
-// 	path := filepath.Join(NodePath(name), "config.json")
-// 	config, err := renvm.NewConfigFromJSONFile(path)
-// 	if err != nil {
-// 		return "", err
-// 	}
-// 	pubKey, err := ssh.NewPublicKey(&config.Keystore.Rsa.PublicKey)
-// 	if err != nil {
-// 		return "", err
-// 	}
-// 	pubKeyHex := hex.EncodeToString(pubKey.Marshal())
-// 	id := addr.FromPublicKey(config.Keystore.Ecdsa.PublicKey)
-// 	network, err := Network(name)
-// 	if err != nil {
-// 		return "", err
-// 	}
-// 	return fmt.Sprintf("https://%v.renproject.io/darknode/%v?action=register&public_key=0x%s&name=%v", network, id.String(), pubKeyHex, name), nil
-// }
-
 // GetNodesByTags return the names of the nodes which have the given tags.
 func GetNodesByTags(tags string) ([]string, error) {
-	files, err := ioutil.ReadDir(filepath.Join(Directory, "/darknodes"))
+	files, err := ioutil.ReadDir(filepath.Join(Directory, "/nodes"))
 	if err != nil {
 		return nil, err
 	}
 	nodes := make([]string, 0)
 	for _, f := range files {
-		path := filepath.Join(Directory, "darknodes", f.Name(), "tags.out")
+		path := filepath.Join(Directory, "nodes", f.Name(), "tags.out")
 		tagFile, err := ioutil.ReadFile(path)
 		if err != nil {
 			continue
@@ -130,14 +111,9 @@ func GetNodesByTags(tags string) ([]string, error) {
 		if !ValidateTags(string(tagFile), tags) {
 			continue
 		}
-
-		// Check if the node is fully deployed
-		if isDeployed(f.Name()) {
-			nodes = append(nodes, f.Name())
-		}
 	}
 	if len(nodes) == 0 {
-		return nil, errors.New("cannot find any darknode with given tags")
+		return nil, errors.New("cannot find any node with given tags")
 	}
 
 	return nodes, nil
@@ -151,10 +127,4 @@ func ValidateTags(have, required string) bool {
 		}
 	}
 	return true
-}
-
-func isDeployed(name string) bool {
-	path := NodePath(name)
-	script := fmt.Sprintf("cd %v && terraform output ip", path)
-	return SilentRun("bash", "-c", script) == nil
 }

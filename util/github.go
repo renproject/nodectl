@@ -64,7 +64,7 @@ func LatestStableRelease() (string, error) {
 	}
 	client := GithubClient(ctx)
 	opts := &github.ListOptions{
-		Page: 0,
+		Page:    0,
 		PerPage: 50,
 	}
 
@@ -96,7 +96,7 @@ func LatestStableRelease() (string, error) {
 			}
 		}
 
-		if response.NextPage == 0{
+		if response.NextPage == 0 {
 			break
 		}
 		opts.Page = response.NextPage

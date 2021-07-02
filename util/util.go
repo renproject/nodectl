@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"regexp"
+	"strings"
 )
 
 // StringInSlice checks whether the string is in the slice
@@ -38,6 +39,17 @@ func HandleErrs(errs []error) error {
 	}
 
 	return nil
+}
+
+func ErrsText(errs []error, sep string) string {
+	errStings := make([]string, len(errs))
+	for i := range errs {
+		if errs[i] != nil {
+
+		}
+		errStings[i] = errs[i].Error()
+	}
+	return strings.Join(errStings, sep)
 }
 
 // CaptureGroups returns a map which parses all the capture groups.
