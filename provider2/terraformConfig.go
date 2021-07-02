@@ -3,6 +3,7 @@ package provider2
 import (
 	"fmt"
 	"github.com/hashicorp/hcl/v2"
+	"github.com/hashicorp/hcl/v2/hclsyntax"
 	"github.com/hashicorp/hcl/v2/hclwrite"
 	"github.com/zclconf/go-cty/cty"
 )
@@ -72,10 +73,43 @@ func (aws terraformAWS) GenerateTerraformConfig() {
 	egressBody.SetAttributeValue("protocol", cty.StringVal("-1"))
 	egressBody.SetAttributeValue("cidr_blocks", cty.ListVal([]cty.Value{cty.StringVal("0.0.0.0/0")}))
 
-	keypairBlock :=  rootBody.AppendNewBlock("aws_key_pair", []string{"darknode"})
+	keypairBlock :=  rootBody.AppendNewBlock("resource", []string{"aws_key_pair", "darknode"})
 	keypairBody := keypairBlock.Body()
 	keypairBody.SetAttributeValue("key_name", cty.StringVal(aws.Name))
-	keypairBody.SetAttributeValue("public_key", cty.TupleVal([]cty.Value{cty.StringVal(aws.PubKeyPath)}))
+	pubKey := hclwrite.Tokens{
+		&hclwrite.Token{
+			Type:         hclsyntax.TokenStringLit,
+			Bytes:        []byte("public_key "),
+			SpacesBefore: 0,
+		},
+		&hclwrite.Token{
+			Type:         hclsyntax.TokenEqual,
+			Bytes:        []byte("="),
+			SpacesBefore: 0,
+		},
+		&hclwrite.Token{
+			Type:         hclsyntax.TokenStringLit,
+			Bytes:        []byte(" file"),
+			SpacesBefore: 0,
+		},
+		&hclwrite.Token{
+			Type:         hclsyntax.TokenOParen,
+			Bytes:        []byte("("),
+			SpacesBefore: 0,
+		},
+		&hclwrite.Token{
+			Type:         hclsyntax.TokenStringLit,
+			Bytes:        []byte(fmt.Sprintf("\"%v\"", aws.PubKeyPath)),
+			SpacesBefore: 0,
+		},
+		&hclwrite.Token{
+			Type:         hclsyntax.TokenCParen,
+			Bytes:        []byte(")"),
+			SpacesBefore: 0,
+		},
+	}
+	keypairBody.AppendUnstructuredTokens(pubKey)
+	keypairBody.AppendNewline()
 
 	instanceBlock :=  rootBody.AppendNewBlock("resource", []string{"aws_instance", "darknode"})
 	instanceBody := instanceBlock.Body()
@@ -94,7 +128,7 @@ func (aws terraformAWS) GenerateTerraformConfig() {
 		},
 	})
 	instanceBody.SetAttributeValue("instance_type", cty.StringVal(aws.InstanceType))
-	instanceBody.SetAttributeTraversal("ami", hcl.Traversal{
+	instanceBody.SetAttributeTraversal("key_name", hcl.Traversal{
 		hcl.TraverseRoot{
 			Name: "aws_key_pair",
 		},
@@ -110,12 +144,12 @@ func (aws terraformAWS) GenerateTerraformConfig() {
 	instanceBody.SetAttributeValue("tags", cty.ObjectVal(map[string]cty.Value{
 		"Name": cty.StringVal(aws.Name),
 	}))
-	
+
 	rootBlockDevice := instanceBody.AppendNewBlock("root_block_device", nil)
 	rootBlockDeviceBody := rootBlockDevice.Body()
 	rootBlockDeviceBody.SetAttributeValue("volume_type", cty.StringVal("gp2"))
 	rootBlockDeviceBody.SetAttributeValue("volume_size", cty.NumberIntVal(15))
-	
+
 	remoteExecBlock := instanceBody.AppendNewBlock("provisioner", []string{"remote-exec"})
 	remoteExecBody := remoteExecBlock.Body()
 	remoteExecBody.SetAttributeValue("inline", cty.ListVal([]cty.Value{
@@ -133,25 +167,93 @@ func (aws terraformAWS) GenerateTerraformConfig() {
 		cty.StringVal("sudo ufw allow 18515/tcp"),
 		cty.StringVal("sudo ufw --force enable"),
 	}))
-	
+
 	remoteConnectionBlock := remoteExecBody.AppendNewBlock("connection", nil)
 	remoteConnectionBody := remoteConnectionBlock.Body()
-	//TODO function host
+	host := hclwrite.Tokens{
+		&hclwrite.Token{
+			Type:         hclsyntax.TokenStringLit,
+			Bytes:        []byte("host "),
+			SpacesBefore: 0,
+		},
+		&hclwrite.Token{
+			Type:         hclsyntax.TokenEqual,
+			Bytes:        []byte("="),
+			SpacesBefore: 0,
+		},
+		&hclwrite.Token{
+			Type:         hclsyntax.TokenStringLit,
+			Bytes:        []byte(" coalesce"),
+			SpacesBefore: 0,
+		},
+		&hclwrite.Token{
+			Type:         hclsyntax.TokenOParen,
+			Bytes:        []byte("("),
+			SpacesBefore: 0,
+		},
+		&hclwrite.Token{
+			Type:         hclsyntax.TokenStringLit,
+			Bytes:        []byte("self.public_ip, self.private_ip"),
+			SpacesBefore: 0,
+		},
+		&hclwrite.Token{
+			Type:         hclsyntax.TokenCParen,
+			Bytes:        []byte(")"),
+			SpacesBefore: 0,
+		},
+	}
+	remoteConnectionBody.AppendUnstructuredTokens(host)
+	remoteConnectionBody.AppendNewline()
 	remoteConnectionBody.SetAttributeValue("type", cty.StringVal("ssh"))
 	remoteConnectionBody.SetAttributeValue("user", cty.StringVal("ubuntu"))
-	//TODO function private_key
-	
+	key := hclwrite.Tokens{
+		&hclwrite.Token{
+			Type:         hclsyntax.TokenStringLit,
+			Bytes:        []byte("private_key "),
+			SpacesBefore: 0,
+		},
+		&hclwrite.Token{
+			Type:         hclsyntax.TokenEqual,
+			Bytes:        []byte("="),
+			SpacesBefore: 0,
+		},
+		&hclwrite.Token{
+			Type:         hclsyntax.TokenStringLit,
+			Bytes:        []byte(" file"),
+			SpacesBefore: 0,
+		},
+		&hclwrite.Token{
+			Type:         hclsyntax.TokenOParen,
+			Bytes:        []byte("("),
+			SpacesBefore: 0,
+		},
+		&hclwrite.Token{
+			Type:         hclsyntax.TokenStringLit,
+			Bytes:        []byte(fmt.Sprintf("\"%v\"", aws.PriKeyPath)),
+			SpacesBefore: 0,
+		},
+		&hclwrite.Token{
+			Type:         hclsyntax.TokenCParen,
+			Bytes:        []byte(")"),
+			SpacesBefore: 0,
+		},
+	}
+	remoteConnectionBody.AppendUnstructuredTokens(key)
+	remoteConnectionBody.AppendNewline()
+
 	configBlock := instanceBody.AppendNewBlock("provisioner", []string{"file"})
 	configBody := configBlock.Body()
 	configBody.SetAttributeValue("source", cty.StringVal(aws.ConfigPath))
 	configBody.SetAttributeValue("destination", cty.StringVal("$HOME/config.json"))
-	
+
 	configConnBlock := configBody.AppendNewBlock("connection", nil)
 	configConnBody := configConnBlock.Body()
-	//TODO function host
-	configConnBody.SetAttributeValue("Type", cty.StringVal("ssh"))
+	configConnBody.AppendUnstructuredTokens(host)
+	configConnBody.AppendNewline()
+	configConnBody.SetAttributeValue("type", cty.StringVal("ssh"))
 	configConnBody.SetAttributeValue("user", cty.StringVal("darknode"))
-	//TODO function private_key
+	configConnBody.AppendUnstructuredTokens(key)
+	configConnBody.AppendNewline()
 
 	remoteExec2Block := instanceBody.AppendNewBlock("provisioner", []string{"remote-exec"})
 	remoteExec2Body := remoteExec2Block.Body()
@@ -169,23 +271,25 @@ func (aws terraformAWS) GenerateTerraformConfig() {
 		cty.StringVal("systemctl --user start darknode.service"),
 	}))
 
-	remoteConnection2Block := remoteExecBody.AppendNewBlock("connection", nil)
+	remoteConnection2Block := remoteExec2Body.AppendNewBlock("connection", nil)
 	remoteConnection2Body := remoteConnection2Block.Body()
-	//TODO function host
+	remoteConnection2Body.AppendUnstructuredTokens(host)
+	remoteConnection2Body.AppendNewline()
 	remoteConnection2Body.SetAttributeValue("type", cty.StringVal("ssh"))
 	remoteConnection2Body.SetAttributeValue("user", cty.StringVal("darknode"))
-	//TODO function private_key
+	remoteConnection2Body.AppendUnstructuredTokens(key)
+	remoteConnection2Body.AppendNewline()
 
-	outputProviderBlock := rootBody.AppendNewBlock("output", []string{"output", "provider"})
+	outputProviderBlock := rootBody.AppendNewBlock("output", []string{"provider"})
 	outputProviderBody := outputProviderBlock.Body()
 	outputProviderBody.SetAttributeValue("value", cty.StringVal("aws"))
 
 
-	outputIPBlock := rootBody.AppendNewBlock("output", []string{"output", "provider"})
+	outputIPBlock := rootBody.AppendNewBlock("output", []string{"ip"})
 	outputIPBody := outputIPBlock.Body()
 	outputIPBody.SetAttributeTraversal("value", hcl.Traversal{
 		hcl.TraverseRoot{
-			Name: "aws_instancer",
+			Name: "aws_instance",
 		},
 		hcl.TraverseAttr{
 			Name: "darknode",
