@@ -62,7 +62,7 @@ func (aws terraformAWS) GenerateTerraformConfig() {
 	ingressRenBlock := sgBody.AppendNewBlock("ingress", nil)
 	ingressRenBody := ingressRenBlock.Body()
 	ingressRenBody.SetAttributeValue("from_port", cty.NumberIntVal(18514))
-	ingressRenBody.SetAttributeValue("to_port", cty.NumberIntVal(18514))
+	ingressRenBody.SetAttributeValue("to_port", cty.NumberIntVal(18515))
 	ingressRenBody.SetAttributeValue("protocol", cty.StringVal("tcp"))
 	ingressRenBody.SetAttributeValue("cidr_blocks", cty.ListVal([]cty.Value{cty.StringVal("0.0.0.0/0")}))
 
@@ -73,7 +73,7 @@ func (aws terraformAWS) GenerateTerraformConfig() {
 	egressBody.SetAttributeValue("protocol", cty.StringVal("-1"))
 	egressBody.SetAttributeValue("cidr_blocks", cty.ListVal([]cty.Value{cty.StringVal("0.0.0.0/0")}))
 
-	keypairBlock :=  rootBody.AppendNewBlock("resource", []string{"aws_key_pair", "darknode"})
+	keypairBlock := rootBody.AppendNewBlock("resource", []string{"aws_key_pair", "darknode"})
 	keypairBody := keypairBlock.Body()
 	keypairBody.SetAttributeValue("key_name", cty.StringVal(aws.Name))
 	pubKey := hclwrite.Tokens{
@@ -111,7 +111,7 @@ func (aws terraformAWS) GenerateTerraformConfig() {
 	keypairBody.AppendUnstructuredTokens(pubKey)
 	keypairBody.AppendNewline()
 
-	instanceBlock :=  rootBody.AppendNewBlock("resource", []string{"aws_instance", "darknode"})
+	instanceBlock := rootBody.AppendNewBlock("resource", []string{"aws_instance", "darknode"})
 	instanceBody := instanceBlock.Body()
 	instanceBody.SetAttributeTraversal("ami", hcl.Traversal{
 		hcl.TraverseRoot{
@@ -140,6 +140,40 @@ func (aws terraformAWS) GenerateTerraformConfig() {
 		},
 	})
 
+	securityGroups := hclwrite.Tokens{
+		&hclwrite.Token{
+			Type:         hclsyntax.TokenStringLit,
+			Bytes:        []byte("security_groups "),
+			SpacesBefore: 0,
+		},
+		&hclwrite.Token{
+			Type:         hclsyntax.TokenEqual,
+			Bytes:        []byte("="),
+			SpacesBefore: 0,
+		},
+		&hclwrite.Token{
+			Type:         hclsyntax.TokenStringLit,
+			Bytes:        []byte(" "),
+			SpacesBefore: 0,
+		},
+		&hclwrite.Token{
+			Type:         hclsyntax.TokenOBrack,
+			Bytes:        []byte("["),
+			SpacesBefore: 0,
+		},
+		&hclwrite.Token{
+			Type:         hclsyntax.TokenStringLit,
+			Bytes:        []byte("aws_security_group.darknode.name"),
+			SpacesBefore: 0,
+		},
+		&hclwrite.Token{
+			Type:         hclsyntax.TokenCBrack,
+			Bytes:        []byte("]"),
+			SpacesBefore: 0,
+		},
+	}
+	instanceBody.AppendUnstructuredTokens(securityGroups)
+	instanceBody.AppendNewline()
 	instanceBody.SetAttributeValue("monitoring", cty.True)
 	instanceBody.SetAttributeValue("tags", cty.ObjectVal(map[string]cty.Value{
 		"Name": cty.StringVal(aws.Name),
@@ -156,12 +190,12 @@ func (aws terraformAWS) GenerateTerraformConfig() {
 		cty.StringVal("set -x"),
 		cty.StringVal("until sudo apt update; do sleep 4; done"),
 		cty.StringVal("sudo adduser darknode --gecos \",,,\" --disabled-password"),
-		cty.StringVal( "sudo rsync --archive --chown=darknode:darknode ~/.ssh /home/darknode"),
+		cty.StringVal("sudo rsync --archive --chown=darknode:darknode ~/.ssh /home/darknode"),
 		cty.StringVal("sudo DEBIAN_FRONTEND=noninteractive apt-get -y update"),
 		cty.StringVal("sudo DEBIAN_FRONTEND=noninteractive apt-get -y upgrade"),
 		cty.StringVal("sudo DEBIAN_FRONTEND=noninteractive apt-get -y dist-upgrade"),
 		cty.StringVal("sudo DEBIAN_FRONTEND=noninteractive apt-get -y autoremove"),
-		cty.StringVal( "sudo apt-get install ufw"),
+		cty.StringVal("sudo apt-get install ufw"),
 		cty.StringVal("sudo ufw limit 22/tcp"),
 		cty.StringVal("sudo ufw allow 18514/tcp"),
 		cty.StringVal("sudo ufw allow 18515/tcp"),
@@ -261,13 +295,13 @@ func (aws terraformAWS) GenerateTerraformConfig() {
 		cty.StringVal("set -x"),
 		cty.StringVal("mkdir -p $HOME/.darknode/bin"),
 		cty.StringVal("mkdir -p $HOME/.config/systemd/user"),
-		cty.StringVal( "mv $HOME/config.json $HOME/.darknode/config.json"),
+		cty.StringVal("mv $HOME/config.json $HOME/.darknode/config.json"),
 		cty.StringVal("curl -sL https://www.github.com/renproject/darknode-release/releases/latest/download/darknode > ~/.darknode/bin/darknode"),
 		cty.StringVal("chmod +x ~/.darknode/bin/darknode"),
 		cty.StringVal("echo {{.LatestVersion}} > ~/.darknode/version"),
 		//TODO add EOT and writing service file
 		cty.StringVal("loginctl enable-linger darknode"),
-		cty.StringVal( "systemctl --user enable darknode.service"),
+		cty.StringVal("systemctl --user enable darknode.service"),
 		cty.StringVal("systemctl --user start darknode.service"),
 	}))
 
@@ -283,7 +317,6 @@ func (aws terraformAWS) GenerateTerraformConfig() {
 	outputProviderBlock := rootBody.AppendNewBlock("output", []string{"provider"})
 	outputProviderBody := outputProviderBlock.Body()
 	outputProviderBody.SetAttributeValue("value", cty.StringVal("aws"))
-
 
 	outputIPBlock := rootBody.AppendNewBlock("output", []string{"ip"})
 	outputIPBody := outputIPBlock.Body()
