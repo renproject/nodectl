@@ -289,6 +289,25 @@ func (aws terraformAWS) GenerateTerraformConfig() {
 	configConnBody.AppendUnstructuredTokens(key)
 	configConnBody.AppendNewline()
 
+	serviceFileBlock := instanceBody.AppendNewBlock("provisioner", []string{"file"})
+	serviceFileBody := serviceFileBlock.Body()
+	serviceFileBody.SetAttributeValue("source", cty.StringVal("../artifacts/darknode.service"))
+	serviceFileBody.SetAttributeValue("destination", cty.StringVal("~/.config/systemd/user/darknode.service"))
+	serviceConnectionBlock := serviceFileBody.AppendNewBlock("connection", nil)
+	serviceConnectionBody := serviceConnectionBlock.Body()
+	serviceConnectionBody.SetAttributeTraversal("host", hcl.Traversal{
+		hcl.TraverseRoot{
+			Name: "self",
+		},
+		hcl.TraverseAttr{
+			Name: "ipv4_address",
+		},
+	})
+	serviceConnectionBody.SetAttributeValue("type", cty.StringVal("ssh"))
+	serviceConnectionBody.SetAttributeValue("user", cty.StringVal("root"))
+	serviceConnectionBody.AppendUnstructuredTokens(key)
+	serviceConnectionBody.AppendNewline()
+
 	remoteExec2Block := instanceBody.AppendNewBlock("provisioner", []string{"remote-exec"})
 	remoteExec2Body := remoteExec2Block.Body()
 	remoteExec2Body.SetAttributeValue("inline", cty.ListVal([]cty.Value{
@@ -299,7 +318,6 @@ func (aws terraformAWS) GenerateTerraformConfig() {
 		cty.StringVal("curl -sL https://www.github.com/renproject/darknode-release/releases/latest/download/darknode > ~/.darknode/bin/darknode"),
 		cty.StringVal("chmod +x ~/.darknode/bin/darknode"),
 		cty.StringVal("echo {{.LatestVersion}} > ~/.darknode/version"),
-		//TODO add EOT and writing service file
 		cty.StringVal("loginctl enable-linger darknode"),
 		cty.StringVal("systemctl --user enable darknode.service"),
 		cty.StringVal("systemctl --user start darknode.service"),
