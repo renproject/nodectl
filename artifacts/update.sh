@@ -15,7 +15,7 @@ main(){
 
   # Check terraform version
   if check_cmd terraform; then
-    version="$(terraform --version | grep 'Terraform v')"
+    version="$(terraform --version | grep 'Terraform v' | cut -d "v" -f2)"
     major="$(echo $version | cut -d. -f1)"
     minor="$(echo $version | cut -d. -f2)"
     patch="$(echo $version | cut -d. -f3)"
