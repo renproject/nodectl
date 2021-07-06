@@ -20,6 +20,30 @@ type doTerraform struct {
 	LatestVersion string
 }
 
+func (do doTerraform) GenerateFloatingIP() {
+	f := hclwrite.NewEmptyFile()
+	rootBody := f.Body()
+
+	floatingIpBlock := rootBody.AppendNewBlock("resource", []string{"digitalocean_floating_ip", "darknode"})
+	floatingIpBody := floatingIpBlock.Body()
+	floatingIpBody.SetAttributeValue("region", cty.StringVal(do.Region))
+
+	outputIPBlock := rootBody.AppendNewBlock("output", []string{"static_ip"})
+	outputIPBody := outputIPBlock.Body()
+	outputIPBody.SetAttributeTraversal("value", hcl.Traversal{
+		hcl.TraverseRoot{
+			Name: "digitalocean_floating_ip",
+		},
+		hcl.TraverseAttr{
+			Name: "darknode",
+		},
+		hcl.TraverseAttr{
+			Name: "ip_address",
+		},
+	})
+	fmt.Printf("%s\n", f.Bytes())
+}
+
 func (do doTerraform) GenerateTerraformConfig() {
 	f := hclwrite.NewEmptyFile()
 	rootBody := f.Body()
@@ -79,7 +103,7 @@ func (do doTerraform) GenerateTerraformConfig() {
 			Name: "digitalocean",
 		},
 	})
-	dropletBody.SetAttributeValue("image", cty.StringVal("ubuntu-18-04-x64"))
+	dropletBody.SetAttributeValue("image", cty.StringVal("ubuntu-20-04-x64"))
 	dropletBody.SetAttributeValue("name", cty.StringVal(do.Name))
 	dropletBody.SetAttributeValue("region", cty.StringVal(do.Region))
 	dropletBody.SetAttributeValue("size", cty.StringVal(do.Size))
@@ -128,7 +152,8 @@ func (do doTerraform) GenerateTerraformConfig() {
 		cty.StringVal("sudo adduser darknode --gecos \",,,\" --disabled-password"),
 		cty.StringVal("sudo rsync --archive --chown=darknode:darknode ~/.ssh /home/darknode"),
 		cty.StringVal("curl -sSL https://repos.insights.digitalocean.com/install.sh | sudo bash"),
-		cty.StringVal("until sudo apt-get install ufw; do sleep 4; done"),
+		cty.StringVal("sudo apt-get install -y ocl-icd-opencl-dev build-essential libhwloc-dev"),
+		cty.StringVal("until sudo apt-get install -y ufw; do sleep 4; done"),
 		cty.StringVal("sudo ufw limit 22/tcp"),
 		cty.StringVal("sudo ufw allow 18514/tcp"),
 		cty.StringVal("sudo ufw allow 18515/tcp"),
@@ -224,6 +249,15 @@ func (do doTerraform) GenerateTerraformConfig() {
 	remoteExec2Body := remoteExec2Block.Body()
 	remoteExec2Body.SetAttributeValue("inline", cty.ListVal([]cty.Value{
 		cty.StringVal("set -x"),
+		cty.StringVal("curl https://sh.rustup.rs -sSf | sh"),
+		cty.StringVal("source $HOME/.cargo/env"),
+		cty.StringVal("wget https://github.com/CosmWasm/wasmvm/archive/v0.10.0.tar.gz"),
+		cty.StringVal("tar -xzf v0.10.0.tar.gz"),
+		cty.StringVal("cd wasmvm-0.10.0/"),
+		cty.StringVal("make build"),
+		cty.StringVal("sudo cp ./api/libgo_cosmwasm.so /usr/lib/"),
+		cty.StringVal("cd .."),
+		cty.StringVal("rm -r v0.10.0.tar.gz wasmvm-0.10.0"),
 		cty.StringVal("mkdir -p $HOME/.darknode/bin"),
 		cty.StringVal("mkdir -p $HOME/.config/systemd/use"),
 		cty.StringVal("mv $HOME/config.json $HOME/.darknode/config.json"),
