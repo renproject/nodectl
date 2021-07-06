@@ -201,41 +201,11 @@ func (do doTerraform) GenerateTerraformConfig() {
 	connection2Body.AppendUnstructuredTokens(key)
 	connection2Body.AppendNewline()
 
-	localExec2Block := dropletBody.AppendNewBlock("provisioner", []string{"local-exec"})
-	localExec2Body := localExec2Block.Body()
-	localExec2Body.SetAttributeValue("command", cty.StringVal(`echo "[Unit]
-Description=RenVM Darknode Daemon
-AssertPathExists=$HOME/.darknode
-
-[Service]
-WorkingDirectory=$HOME/.darknode
-ExecStart=$HOME/.darknode/bin/darknode --config $HOME/.darknode/config.json
-Restart=on-failure
-PrivateTmp=true\nNoNewPrivileges=true
-
-# Specifies which signal to use when killing a service. Defaults to SIGTERM.
-# SIGHUP gives parity time to exit cleanly before SIGKILL (default 90s)
-KillSignal=SIGHUP
-
-[Install]
-WantedBy=default.target" > ~/.config/systemd/user/darknode.service`))
-
-	remoteExec2Block := dropletBody.AppendNewBlock("provisioner", []string{"remote-exec"})
-	remoteExec2Body := remoteExec2Block.Body()
-	remoteExec2Body.SetAttributeValue("inline", cty.ListVal([]cty.Value{
-		cty.StringVal("set -x"),
-		cty.StringVal("mkdir -p $HOME/.darknode/bin"),
-		cty.StringVal("mkdir -p $HOME/.config/systemd/use"),
-		cty.StringVal("mv $HOME/config.json $HOME/.darknode/config.json"),
-		cty.StringVal("curl -sL https://www.github.com/renproject/darknode-release/releases/download/{{.LatestVersion}}/darknode > ~/.darknode/bin/darknode"),
-		cty.StringVal("chmod +x ~/.darknode/bin/darknod"),
-		cty.StringVal(fmt.Sprintf("echo %s > ~/.darknode/version", do.LatestVersion)),
-		cty.StringVal("loginctl enable-linger darknode"),
-		cty.StringVal("systemctl --user enable darknode.service"),
-		cty.StringVal("systemctl --user start darknode.service"),
-	}))
-
-	connection3Block := remoteExec2Body.AppendNewBlock("connection", nil)
+	serviceFileBlock := dropletBody.AppendNewBlock("provisioner", []string{"file"})
+	serviceFileBody := serviceFileBlock.Body()
+	serviceFileBody.SetAttributeValue("source", cty.StringVal("../artifacts/darknode.service"))
+	serviceFileBody.SetAttributeValue("destination", cty.StringVal("~/.config/systemd/user/darknode.service"))
+	connection3Block := serviceFileBody.AppendNewBlock("connection", nil)
 	connection3Body := connection3Block.Body()
 	connection3Body.SetAttributeTraversal("host", hcl.Traversal{
 		hcl.TraverseRoot{
@@ -249,6 +219,36 @@ WantedBy=default.target" > ~/.config/systemd/user/darknode.service`))
 	connection3Body.SetAttributeValue("user", cty.StringVal("root"))
 	connection3Body.AppendUnstructuredTokens(key)
 	connection3Body.AppendNewline()
+
+	remoteExec2Block := dropletBody.AppendNewBlock("provisioner", []string{"remote-exec"})
+	remoteExec2Body := remoteExec2Block.Body()
+	remoteExec2Body.SetAttributeValue("inline", cty.ListVal([]cty.Value{
+		cty.StringVal("set -x"),
+		cty.StringVal("mkdir -p $HOME/.darknode/bin"),
+		cty.StringVal("mkdir -p $HOME/.config/systemd/use"),
+		cty.StringVal("mv $HOME/config.json $HOME/.darknode/config.json"),
+		cty.StringVal(fmt.Sprintf("curl -sL https://www.github.com/renproject/darknode-release/releases/download/%v/darknode > ~/.darknode/bin/darknode", do.LatestVersion)),
+		cty.StringVal("chmod +x ~/.darknode/bin/darknod"),
+		cty.StringVal(fmt.Sprintf("echo %s > ~/.darknode/version", do.LatestVersion)),
+		cty.StringVal("loginctl enable-linger darknode"),
+		cty.StringVal("systemctl --user enable darknode.service"),
+		cty.StringVal("systemctl --user start darknode.service"),
+	}))
+
+	connection4Block := remoteExec2Body.AppendNewBlock("connection", nil)
+	connection4Body := connection4Block.Body()
+	connection4Body.SetAttributeTraversal("host", hcl.Traversal{
+		hcl.TraverseRoot{
+			Name: "self",
+		},
+		hcl.TraverseAttr{
+			Name: "ipv4_address",
+		},
+	})
+	connection4Body.SetAttributeValue("type", cty.StringVal("ssh"))
+	connection4Body.SetAttributeValue("user", cty.StringVal("root"))
+	connection4Body.AppendUnstructuredTokens(key)
+	connection4Body.AppendNewline()
 
 	outputProviderBlock := rootBody.AppendNewBlock("output", []string{"provider"})
 	outputProviderBody := outputProviderBlock.Body()
