@@ -21,6 +21,28 @@ type terraformAWS struct {
 	LatestVersion string
 }
 
+func (aws terraformAWS) GenerateStaticIPConfig() {
+	f := hclwrite.NewEmptyFile()
+	rootBody := f.Body()
+
+	rootBody.AppendNewBlock("resource", []string{"aws_eip", "darknode"})
+
+	outputIPBlock := rootBody.AppendNewBlock("output", []string{"static_ip"})
+	outputIPBody := outputIPBlock.Body()
+	outputIPBody.SetAttributeTraversal("value", hcl.Traversal{
+		hcl.TraverseRoot{
+			Name: "aws_eip",
+		},
+		hcl.TraverseAttr{
+			Name: "darknode",
+		},
+		hcl.TraverseAttr{
+			Name: "public_ip",
+		},
+	})
+	fmt.Printf("%s\n", f.Bytes())
+}
+
 func (aws terraformAWS) GenerateTerraformConfig() {
 	f := hclwrite.NewEmptyFile()
 	rootBody := f.Body()

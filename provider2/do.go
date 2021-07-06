@@ -20,7 +20,7 @@ type doTerraform struct {
 	LatestVersion string
 }
 
-func (do doTerraform) GenerateFloatingIP() {
+func (do doTerraform) GenerateStaticIPConfig() {
 	f := hclwrite.NewEmptyFile()
 	rootBody := f.Body()
 
