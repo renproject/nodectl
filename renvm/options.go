@@ -1,8 +1,8 @@
 package renvm
 
 import (
-	"os"
-	"path/filepath"
+	"encoding/json"
+	"net/http"
 
 	"github.com/renproject/aw/wire"
 	"github.com/renproject/id"
@@ -10,10 +10,15 @@ import (
 	"github.com/renproject/pack"
 )
 
+var (
+	ConfigURLTestnet = "https://s3.ap-southeast-1.amazonaws.com/darknode.renproject.io/testnet.json"
+
+	ConfigURLMainnet = "s3://darknode.renproject.io/mainnet.json"
+)
+
 // Default options.
 var (
-	DefaultHome     = filepath.Join(os.Getenv("HOME"), ".darknode")
-	DefaultPeers    = []wire.Address{}
+	DefaultHome     = "/home/darknode/.darknode"
 	DefaultHost     = "0.0.0.0"
 	DefaultPort     = uint16(18514)
 	DefaultSimulate = Simulate{
@@ -22,7 +27,6 @@ var (
 		},
 	}
 	DefaultProfile = false
-	DefaultNetwork = multichain.NetworkMainnet
 )
 
 // Options parameterise the behaviour of a node. During testing, options are
@@ -101,18 +105,26 @@ type Fees struct {
 
 func NewOptions(network multichain.Network) Options {
 	return Options{
-		Home:    DefaultHome,
-		PrivKey: id.NewPrivKey(),
-		// TODO: NEED TO THINK ABOUT HOW WE WANT TO DO THIS
-		Peers:    DefaultPeers,
+		Home:     DefaultHome,
+		PrivKey:  id.NewPrivKey(),
 		Host:     DefaultHost,
 		Port:     DefaultPort,
 		Simulate: DefaultSimulate,
 		Profile:  DefaultProfile,
 		Network:  network,
-		// TODO: Need to use our multichain infra
-		Chains: nil,
-		// TODO: Same as the Peers.
-		Selectors: nil,
 	}
+}
+
+func OptionTemplate(url string) (Options, error) {
+	response, err := http.Get(url)
+	if err != nil {
+		return Options{}, err
+	}
+	defer response.Body.Close()
+
+	var opts Options
+	if err := json.NewDecoder(response.Body).Decode(&opts); err != nil {
+		return Options{}, err
+	}
+	return opts, nil
 }

@@ -17,6 +17,24 @@ import (
 
 const MaxNameLength = 32
 
+var DarknodeService = `[Unit]
+Description=RenVM Darknode Daemon
+
+[Service]
+WorkingDirectory=/home
+ExecStart=/home/darknode/.darknode/bin/darknode --config /home/darknode/.darknode/config.json
+Restart=on-failure
+PrivateTmp=true
+NoNewPrivileges=true
+
+# Specifies which signal to use when killing a service. Defaults to SIGTERM.
+# SIGHUP gives parity time to exit cleanly before SIGKILL (default 90s)
+KillSignal=SIGHUP
+
+[Install]
+WantedBy=default.target
+`
+
 var (
 	ErrEmptyName = errors.New("node name cannot be empty")
 
@@ -53,10 +71,9 @@ type Provider interface {
 }
 
 func ParseProvider(ctx *cli.Context) (Provider, error) {
-	// todo
-	// if ctx.Bool(NameAws) {
-	// 	return NewAWS(ctx)
-	// }
+	if ctx.Bool(NameAws) {
+		return NewAWS(ctx)
+	}
 
 	if ctx.Bool(NameDo) {
 		return NewDo(ctx)
@@ -122,10 +139,11 @@ func validateCommonParams(ctx *cli.Context) error {
 	return nil
 }
 
-// initialize files for deploying a darknode
-func initialize(ctx *cli.Context) error {
+// initialize files for deploying a Darknode
+func initialize(ctx *cli.Context, opts renvm.Options) error {
 	name := ctx.String("name")
 	path := util.NodePath(name)
+	network := multichain.Network(ctx.String("network"))
 
 	// Create directory for the Ren node
 	if err := os.Mkdir(path, 0700); err != nil {
@@ -144,28 +162,31 @@ func initialize(ctx *cli.Context) error {
 		return err
 	}
 
-	// Create `config.json` file
-	configFile := ctx.String("config")
-	destination := filepath.Join(util.NodePath(name), "config.json")
-	if configFile != "" {
-		path, err := filepath.Abs(configFile)
-		if err != nil {
-			return err
-		}
-		input, err := ioutil.ReadFile(path)
-		if err != nil {
-			return err
-		}
-		return ioutil.WriteFile(destination, input, 0600)
-	} else {
-		network := multichain.Network(ctx.String("network"))
-		options := renvm.NewOptions(network)
-		configData, err := json.MarshalIndent(options, "", "    ")
-		if err != nil {
-			return err
-		}
-		return ioutil.WriteFile(destination, configData, 0600)
+	// Generate the `darknode.service` file
+	servicePath := filepath.Join(path, "darknode.service")
+	if err := ioutil.WriteFile(servicePath, []byte(DarknodeService), 0600); err != nil {
+		return err
 	}
 
-	// TODO : Create `genesis.json` file
+	// Create the `genesis.json` file
+	state, err := renvm.NewGenesis(network, opts.Peers)
+	if err != nil {
+		return err
+	}
+	stateBytes, err := json.MarshalIndent(state, "", "    ")
+	if err != nil {
+		return err
+	}
+	statePath := filepath.Join(path, "genesis.json")
+	err = ioutil.WriteFile(statePath, stateBytes, 0600)
+	return err
+}
+
+func applyTerraform(name string) error {
+	init := fmt.Sprintf("cd %v && terraform init", util.NodePath(name))
+	if err := util.Run("bash", "-c", init); err != nil {
+		return err
+	}
+	apply := fmt.Sprintf("cd %v && terraform apply -auto-approve -no-color", util.NodePath(name))
+	return util.Run("bash", "-c", apply)
 }

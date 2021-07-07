@@ -66,9 +66,9 @@ var (
 	}
 	AwsInstanceFlag = &cli.StringFlag{
 		Name:        "aws-instance",
-		Value:       "t3.micro",
+		Value:       provider.DefaultAWSInstance,
 		Usage:       "An optional AWS EC2 instance type",
-		DefaultText: "t3.micro",
+		DefaultText: provider.DefaultAWSInstance,
 	}
 	AwsProfileFlag = &cli.StringFlag{
 		Name:  "aws-profile",

@@ -2,6 +2,7 @@ package provider2
 
 import (
 	"fmt"
+
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclsyntax"
 	"github.com/hashicorp/hcl/v2/hclwrite"
@@ -50,8 +51,8 @@ func (do doTerraform) GenerateTerraformConfig() {
 
 	reqProviderBody := rootBody.AppendNewBlock("terraform", nil).Body().AppendNewBlock("required_providers", nil).Body()
 	reqProviderBody.SetAttributeValue("digitalocean", cty.ObjectVal(map[string]cty.Value{
-		"source" : cty.StringVal("digitalocean/digitalocean"),
-		"version" : cty.StringVal("~> 2.0"),
+		"source":  cty.StringVal("digitalocean/digitalocean"),
+		"version": cty.StringVal("~> 2.0"),
 	}))
 
 	providerBlock := rootBody.AppendNewBlock("provider", []string{"digitalocean"})

@@ -71,6 +71,9 @@ func NodeIP(name string) (string, error) {
 
 	cmd := fmt.Sprintf("cd %v && terraform output ip", NodePath(name))
 	ip, err := CommandOutput(cmd)
+	if strings.HasPrefix(ip, "\"") {
+		return strings.Trim(strings.TrimSpace(ip), "\""), err
+	}
 	return strings.TrimSpace(ip), err
 }
 
@@ -82,6 +85,9 @@ func NodeProvider(name string) (string, error) {
 
 	cmd := fmt.Sprintf("cd %v && terraform output provider", NodePath(name))
 	provider, err := CommandOutput(cmd)
+	if strings.HasPrefix(provider, "\"") {
+		provider = strings.Trim(provider, "\"")
+	}
 	return strings.TrimSpace(provider), err
 }
 
@@ -97,13 +103,13 @@ func Version(name string) string {
 
 // GetNodesByTags return the names of the nodes which have the given tags.
 func GetNodesByTags(tags string) ([]string, error) {
-	files, err := ioutil.ReadDir(filepath.Join(Directory, "/nodes"))
+	files, err := ioutil.ReadDir(filepath.Join(Directory, "darknodes"))
 	if err != nil {
 		return nil, err
 	}
 	nodes := make([]string, 0)
 	for _, f := range files {
-		path := filepath.Join(Directory, "nodes", f.Name(), "tags.out")
+		path := filepath.Join(Directory, "darknodes", f.Name(), "tags.out")
 		tagFile, err := ioutil.ReadFile(path)
 		if err != nil {
 			continue
@@ -111,6 +117,7 @@ func GetNodesByTags(tags string) ([]string, error) {
 		if !ValidateTags(string(tagFile), tags) {
 			continue
 		}
+		nodes = append(nodes, f.Name())
 	}
 	if len(nodes) == 0 {
 		return nil, errors.New("cannot find any node with given tags")

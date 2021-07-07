@@ -1,6 +1,7 @@
 package nodectl
 
 import (
+	"fmt"
 	"path/filepath"
 
 	"github.com/fatih/color"
@@ -46,8 +47,20 @@ func App() *cli.App {
 			Aliases: []string{"down"},
 			Flags:   []cli.Flag{TagsFlag, ForceFlag},
 			Action: func(c *cli.Context) error {
-				// TODO : FINISH THIS
-				panic("unimplemented")
+				name := c.Args().First()
+				path := util.NodePath(name)
+
+				if err := util.ValidateNodeName(name); err != nil {
+					return err
+				}
+				color.Green("Backing up config...")
+				if err := util.BackUpConfig(name); err != nil {
+					return err
+				}
+
+				color.Green("Destroying your Darknode...")
+				destroy := fmt.Sprintf("cd %v && terraform destroy --auto-approve && cd .. && rm -rf %v", path, name)
+				return util.Run("bash", "-c", destroy)
 			},
 		},
 		// {

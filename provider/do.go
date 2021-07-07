@@ -54,9 +54,9 @@ func (p providerDO) Deploy(ctx *cli.Context) error {
 	}
 
 	// Initialize folder and files for the node
-	if err := initialize(ctx); err != nil {
-		return err
-	}
+	// if err := initialize(ctx); err != nil {
+	// 	return err
+	// }
 
 	// TODO: Generate a terraform config file
 

@@ -1,9 +1,16 @@
 package renvm
 
 import (
+	"crypto/ecdsa"
+	"encoding/hex"
 	"fmt"
 
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/renproject/aw/wire"
+	"github.com/renproject/id"
+	"github.com/renproject/multichain"
 	"github.com/renproject/pack"
+	"github.com/renproject/surge"
 )
 
 type State []Contract
@@ -63,10 +70,22 @@ type SystemStateShardsShard struct {
 	PubKey pack.Bytes   `json:"pubKey"`
 }
 
-func NewGenesis() State {
-	// TODO : GET THIS FROM MAINNET DARKNODE
-	shardHash := pack.Bytes32{}
-	renVMPubKeyBytes := pack.Bytes{}
+func NewGenesis(network multichain.Network, peers []wire.Address) (State, error) {
+	if len(peers) == 0 {
+		return State{}, fmt.Errorf("fetching signatory : empty darknode address")
+	}
+	shardSignatory, err := peers[0].Signatory()
+	if err != nil {
+		return State{}, err
+	}
+	shardHash := id.NewMerkleHashFromSignatories([]id.Signatory{shardSignatory})
+
+	pubkey := RenVMPubKey(network)
+	renVMPubKey := (*id.PubKey)(pubkey)
+	renVMPubKeyBytes, err := surge.ToBinary(renVMPubKey)
+	if err != nil {
+		return State{}, err
+	}
 
 	systemState := SystemState{
 		Epoch: SystemStateEpoch{},
@@ -74,7 +93,7 @@ func NewGenesis() State {
 		Shards: SystemStateShards{
 			Primary: []SystemStateShardsShard{
 				{
-					Shard:  shardHash,
+					Shard:  pack.Bytes32(shardHash),
 					PubKey: renVMPubKeyBytes,
 				},
 			},
@@ -91,5 +110,31 @@ func NewGenesis() State {
 			Address: "System",
 			State:   pack.Typed(systemStateEncoded.(pack.Struct)),
 		},
+	}, nil
+}
+
+// Compressed RenVM public key in hex encoding
+func RenVMPubKey(network multichain.Network) *ecdsa.PublicKey {
+	var pubKeyStr string
+	switch network {
+	case multichain.NetworkDevnet:
+		pubKeyStr = "0232938bc9b3fd09488a77704d102f769b6c89cd33de4b72d309f83bf1b7e26f50"
+	case multichain.NetworkTestnet:
+		pubKeyStr = "030dd65f7db2920bb229912e3f4213dd150e5f972c9b73e9be714d844561ac355c"
+	case multichain.NetworkMainnet:
+		pubKeyStr = "038927457800931c7d44dc94cb0021b4e881f9935c1234dc92f456e32ec019d5d7"
+	default:
+		panic(fmt.Sprintf("unsupport network = %v", network))
 	}
+
+	// Decode the hex string and get the RenVM public key
+	keyBytes, err := hex.DecodeString(pubKeyStr)
+	if err != nil {
+		panic(fmt.Sprintf("invalid public key string from the env variable, err = %v", err))
+	}
+	key, err := crypto.DecompressPubkey(keyBytes)
+	if err != nil {
+		panic(fmt.Sprintf("invalid distribute public key, err = %v", err))
+	}
+	return key
 }
