@@ -189,7 +189,7 @@ func (p providerAWS) validateRegionAndInstance(ctx *cli.Context) (string, string
 		indexes := rand.Perm(len(result.Regions))
 		for _, index := range indexes {
 			region = *result.Regions[index].RegionName
-			if p.instanceTypesAvailability(cred, region, instance); err == nil {
+			if err := p.instanceTypesAvailability(cred, region, instance); err == nil {
 				return region, instance, nil
 			}
 		}
