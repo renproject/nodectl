@@ -26,6 +26,7 @@ import (
 )
 
 const DefaultDigitalOceanDroplet = "s-1vcpu-1gb"
+const DefaultDigitalOceanDropletSize = "15"
 
 type providerDO struct {
 	token string
@@ -84,7 +85,7 @@ func (p providerDO) Deploy(ctx *cli.Context) error {
 		Name:          name,
 		Token:         p.token,
 		Region:        region.Name,
-		Size:          "",
+		Size:          DefaultDigitalOceanDropletSize,
 		ConfigPath:     "",
 		GenesisPath:   filepath.Join(util.NodePath(name), "genesis.json"),
 		PubKeyPath:    filepath.Join(util.NodePath(name), "ssh_keypair.pub"),
@@ -489,6 +490,35 @@ func (do doTerraform) GenerateTerraformConfig() []byte {
 	connection4Body.SetAttributeValue("user", cty.StringVal("root"))
 	connection4Body.AppendUnstructuredTokens(key)
 	connection4Body.AppendNewline()
+
+	//resource "digitalocean_floating_ip_assignment" "foobar" {
+	//	ip_address = digitalocean_floating_ip.foobar.ip_address
+	//	droplet_id = digitalocean_droplet.foobar.id
+	//}
+	floatingIPBlock := rootBody.AppendNewBlock("resource", []string{"digitalocean_floating_ip_assignment", "foobar"})
+	floatingIPBody := floatingIPBlock.Body()
+	floatingIPBody.SetAttributeTraversal("ip_address", hcl.Traversal{
+		hcl.TraverseRoot{
+			Name: "digitalocean_floating_ip",
+		},
+		hcl.TraverseAttr{
+			Name: "darknode",
+		},
+		hcl.TraverseAttr{
+			Name: "ip_address",
+		},
+	})
+	floatingIPBody.SetAttributeTraversal("droplet_id", hcl.Traversal{
+		hcl.TraverseRoot{
+			Name: "digitalocean_droplet",
+		},
+		hcl.TraverseAttr{
+			Name: "darknode",
+		},
+		hcl.TraverseAttr{
+			Name: "id",
+		},
+	})
 
 	outputProviderBlock := rootBody.AppendNewBlock("output", []string{"provider"})
 	outputProviderBody := outputProviderBlock.Body()

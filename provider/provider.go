@@ -146,7 +146,7 @@ func initialize(ctx *cli.Context, opts renvm.Options) error {
 	network := multichain.Network(ctx.String("network"))
 
 	// Create directory for the Ren node
-	if err := os.Mkdir(path, 0700); err != nil {
+	if err := os.MkdirAll(path, 0700); err != nil {
 		return err
 	}
 
