@@ -22,6 +22,28 @@ type terraformAWS struct {
 	LatestVersion string
 }
 
+func (aws terraformAWS) GenerateStaticIPConfig() {
+	f := hclwrite.NewEmptyFile()
+	rootBody := f.Body()
+
+	rootBody.AppendNewBlock("resource", []string{"aws_eip", "darknode"})
+
+	outputIPBlock := rootBody.AppendNewBlock("output", []string{"static_ip"})
+	outputIPBody := outputIPBlock.Body()
+	outputIPBody.SetAttributeTraversal("value", hcl.Traversal{
+		hcl.TraverseRoot{
+			Name: "aws_eip",
+		},
+		hcl.TraverseAttr{
+			Name: "darknode",
+		},
+		hcl.TraverseAttr{
+			Name: "public_ip",
+		},
+	})
+	fmt.Printf("%s\n", f.Bytes())
+}
+
 func (aws terraformAWS) GenerateTerraformConfig() {
 	f := hclwrite.NewEmptyFile()
 	rootBody := f.Body()
@@ -39,7 +61,7 @@ func (aws terraformAWS) GenerateTerraformConfig() {
 	filterBlock := imageBody.AppendNewBlock("filter", nil)
 	filterBody := filterBlock.Body()
 	filterBody.SetAttributeValue("name", cty.StringVal("name"))
-	filterBody.SetAttributeValue("values", cty.ListVal([]cty.Value{cty.StringVal("ubuntu/images/hvm-ssd/ubuntu-bionic-18.04-amd64-server-*")}))
+	filterBody.SetAttributeValue("values", cty.ListVal([]cty.Value{cty.StringVal("ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64-server-*")}))
 
 	filter2Block := imageBody.AppendNewBlock("filter", nil)
 	filter2Body := filter2Block.Body()
@@ -196,7 +218,8 @@ func (aws terraformAWS) GenerateTerraformConfig() {
 		cty.StringVal("sudo DEBIAN_FRONTEND=noninteractive apt-get -y upgrade"),
 		cty.StringVal("sudo DEBIAN_FRONTEND=noninteractive apt-get -y dist-upgrade"),
 		cty.StringVal("sudo DEBIAN_FRONTEND=noninteractive apt-get -y autoremove"),
-		cty.StringVal("sudo apt-get install ufw"),
+		cty.StringVal("sudo apt-get install -y ocl-icd-opencl-dev build-essential libhwloc-dev"),
+		cty.StringVal("until sudo apt-get install -y ufw; do sleep 4; done"),
 		cty.StringVal("sudo ufw limit 22/tcp"),
 		cty.StringVal("sudo ufw allow 18514/tcp"),
 		cty.StringVal("sudo ufw allow 18515/tcp"),
@@ -290,17 +313,44 @@ func (aws terraformAWS) GenerateTerraformConfig() {
 	configConnBody.AppendUnstructuredTokens(key)
 	configConnBody.AppendNewline()
 
+	serviceFileBlock := instanceBody.AppendNewBlock("provisioner", []string{"file"})
+	serviceFileBody := serviceFileBlock.Body()
+	serviceFileBody.SetAttributeValue("source", cty.StringVal("../artifacts/darknode.service"))
+	serviceFileBody.SetAttributeValue("destination", cty.StringVal("~/.config/systemd/user/darknode.service"))
+	serviceConnectionBlock := serviceFileBody.AppendNewBlock("connection", nil)
+	serviceConnectionBody := serviceConnectionBlock.Body()
+	serviceConnectionBody.SetAttributeTraversal("host", hcl.Traversal{
+		hcl.TraverseRoot{
+			Name: "self",
+		},
+		hcl.TraverseAttr{
+			Name: "ipv4_address",
+		},
+	})
+	serviceConnectionBody.SetAttributeValue("type", cty.StringVal("ssh"))
+	serviceConnectionBody.SetAttributeValue("user", cty.StringVal("root"))
+	serviceConnectionBody.AppendUnstructuredTokens(key)
+	serviceConnectionBody.AppendNewline()
+
 	remoteExec2Block := instanceBody.AppendNewBlock("provisioner", []string{"remote-exec"})
 	remoteExec2Body := remoteExec2Block.Body()
 	remoteExec2Body.SetAttributeValue("inline", cty.ListVal([]cty.Value{
 		cty.StringVal("set -x"),
+		cty.StringVal("curl https://sh.rustup.rs -sSf | sh"),
+		cty.StringVal("source $HOME/.cargo/env"),
+		cty.StringVal("wget https://github.com/CosmWasm/wasmvm/archive/v0.10.0.tar.gz"),
+		cty.StringVal("tar -xzf v0.10.0.tar.gz"),
+		cty.StringVal("cd wasmvm-0.10.0/"),
+		cty.StringVal("make build"),
+		cty.StringVal("sudo cp ./api/libgo_cosmwasm.so /usr/lib/"),
+		cty.StringVal("cd .."),
+		cty.StringVal("rm -r v0.10.0.tar.gz wasmvm-0.10.0"),
 		cty.StringVal("mkdir -p $HOME/.darknode/bin"),
 		cty.StringVal("mkdir -p $HOME/.config/systemd/user"),
 		cty.StringVal("mv $HOME/config.json $HOME/.darknode/config.json"),
 		cty.StringVal("curl -sL https://www.github.com/renproject/darknode-release/releases/latest/download/darknode > ~/.darknode/bin/darknode"),
 		cty.StringVal("chmod +x ~/.darknode/bin/darknode"),
 		cty.StringVal("echo {{.LatestVersion}} > ~/.darknode/version"),
-		//TODO add EOT and writing service file
 		cty.StringVal("loginctl enable-linger darknode"),
 		cty.StringVal("systemctl --user enable darknode.service"),
 		cty.StringVal("systemctl --user start darknode.service"),
