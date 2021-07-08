@@ -26,7 +26,6 @@ import (
 )
 
 const DefaultDigitalOceanDroplet = "s-1vcpu-1gb"
-const DefaultDigitalOceanDropletSize = "15"
 
 type providerDO struct {
 	token string
@@ -81,12 +80,13 @@ func (p providerDO) Deploy(ctx *cli.Context) error {
 		return err
 	}
 
+	// Getting everything needed by terraform
 	tf := doTerraform{
 		Name:          name,
 		Token:         p.token,
-		Region:        region.Name,
-		Size:          DefaultDigitalOceanDropletSize,
-		ConfigPath:     "",
+		Region:        region.Slug,
+		Size:          DefaultDigitalOceanDroplet,
+		ConfigPath:     "", // Will be filled after generating the EIP
 		GenesisPath:   filepath.Join(util.NodePath(name), "genesis.json"),
 		PubKeyPath:    filepath.Join(util.NodePath(name), "ssh_keypair.pub"),
 		PriKeyPath:    filepath.Join(util.NodePath(name), "ssh_keypair"),
@@ -94,7 +94,7 @@ func (p providerDO) Deploy(ctx *cli.Context) error {
 		LatestVersion: version,
 	}
 
-	// TODO: Apply the terraform config
+	// Create the Floating IP
 	color.Green("Creating a static IP address for darknode...")
 	fipData := tf.GenerateStaticIPConfig()
 	fipFile, err := os.Create(filepath.Join(util.NodePath(name), "ip.tf"))
@@ -109,6 +109,7 @@ func (p providerDO) Deploy(ctx *cli.Context) error {
 		return err
 	}
 
+	// Generate the config file using the ip address and template
 	ip, err := util.NodeIP(name)
 	if err != nil {
 		return err
@@ -135,6 +136,7 @@ func (p providerDO) Deploy(ctx *cli.Context) error {
 	configFile.Close()
 	tf.ConfigPath = configPath
 
+	// Create the rest service on the cloud
 	color.Green("Deploying darknode...")
 	tfData := tf.GenerateTerraformConfig()
 	tfFile, err := os.Create(filepath.Join(util.NodePath(name), "main.tf"))
@@ -148,7 +150,7 @@ func (p providerDO) Deploy(ctx *cli.Context) error {
 		return err
 	}
 	color.Green("Your darknode is up and running")
-	log.Printf("name = %v, region = %v, droplet = %v, version = %v", name, region, droplet, version)
+	//log.Printf("name = %v, region = %v, droplet = %v, version = %v", name, region.Name, droplet, version)
 	return nil
 }
 
@@ -178,7 +180,9 @@ func (p providerDO) validateRegionAndDroplet(ctx *cli.Context) (godo.Region, str
 		indexes := rand.Perm(len(regions))
 		for _, index := range indexes {
 			if util.StringInSlice(droplet, regions[index].Sizes) {
-				return regions[index], droplet, nil
+				if regions[index].Available {
+					return regions[index], droplet, nil
+				}
 			}
 		}
 		return godo.Region{}, "", fmt.Errorf("selected droplet [%v] not available across all regions", droplet)
@@ -226,7 +230,7 @@ func (do doTerraform) GenerateStaticIPConfig() []byte {
 	floatingIpBody := floatingIpBlock.Body()
 	floatingIpBody.SetAttributeValue("region", cty.StringVal(do.Region))
 
-	outputIPBlock := rootBody.AppendNewBlock("output", []string{"static_ip"})
+	outputIPBlock := rootBody.AppendNewBlock("output", []string{"ip"})
 	outputIPBody := outputIPBlock.Body()
 	outputIPBody.SetAttributeTraversal("value", hcl.Traversal{
 		hcl.TraverseRoot{
@@ -340,12 +344,21 @@ func (do doTerraform) GenerateTerraformConfig() []byte {
 		cty.StringVal("sudo adduser darknode --gecos \",,,\" --disabled-password"),
 		cty.StringVal("sudo rsync --archive --chown=darknode:darknode ~/.ssh /home/darknode"),
 		cty.StringVal("curl -sSL https://repos.insights.digitalocean.com/install.sh | sudo bash"),
-		cty.StringVal("sudo apt-get install -y ocl-icd-opencl-dev build-essential libhwloc-dev"),
 		cty.StringVal("until sudo apt-get install -y ufw; do sleep 4; done"),
 		cty.StringVal("sudo ufw limit 22/tcp"),
 		cty.StringVal("sudo ufw allow 18514/tcp"),
 		cty.StringVal("sudo ufw allow 18515/tcp"),
 		cty.StringVal("sudo ufw --force enable"),
+		cty.StringVal("sudo apt-get install -y ocl-icd-opencl-dev build-essential libhwloc-dev"),
+		cty.StringVal("curl https://sh.rustup.rs -sSf | sh -s -- -y"),
+		cty.StringVal("source $HOME/.cargo/env"),
+		cty.StringVal("wget https://github.com/CosmWasm/wasmvm/archive/v0.10.0.tar.gz"),
+		cty.StringVal("tar -xzf v0.10.0.tar.gz"),
+		cty.StringVal("cd wasmvm-0.10.0/"),
+		cty.StringVal("make build"),
+		cty.StringVal("sudo cp ./api/libgo_cosmwasm.so /usr/lib/"),
+		cty.StringVal("cd .."),
+		cty.StringVal("rm -r v0.10.0.tar.gz wasmvm-0.10.0"),
 	}))
 
 	connectionBlock := remoteExecBody.AppendNewBlock("connection", nil)
@@ -435,8 +448,8 @@ func (do doTerraform) GenerateTerraformConfig() []byte {
 
 	serviceFileBlock := dropletBody.AppendNewBlock("provisioner", []string{"file"})
 	serviceFileBody := serviceFileBlock.Body()
-	serviceFileBody.SetAttributeValue("source", cty.StringVal("../artifacts/darknode.service"))
-	serviceFileBody.SetAttributeValue("destination", cty.StringVal("~/.config/systemd/user/darknode.service"))
+	serviceFileBody.SetAttributeValue("source", cty.StringVal(do.ServiceFile))
+	serviceFileBody.SetAttributeValue("destination", cty.StringVal("$HOME/darknode.service"))
 	connection3Block := serviceFileBody.AppendNewBlock("connection", nil)
 	connection3Body := connection3Block.Body()
 	connection3Body.SetAttributeTraversal("host", hcl.Traversal{
@@ -456,18 +469,11 @@ func (do doTerraform) GenerateTerraformConfig() []byte {
 	remoteExec2Body := remoteExec2Block.Body()
 	remoteExec2Body.SetAttributeValue("inline", cty.ListVal([]cty.Value{
 		cty.StringVal("set -x"),
-		cty.StringVal("curl https://sh.rustup.rs -sSf | sh"),
-		cty.StringVal("source $HOME/.cargo/env"),
-		cty.StringVal("wget https://github.com/CosmWasm/wasmvm/archive/v0.10.0.tar.gz"),
-		cty.StringVal("tar -xzf v0.10.0.tar.gz"),
-		cty.StringVal("cd wasmvm-0.10.0/"),
-		cty.StringVal("make build"),
-		cty.StringVal("sudo cp ./api/libgo_cosmwasm.so /usr/lib/"),
-		cty.StringVal("cd .."),
-		cty.StringVal("rm -r v0.10.0.tar.gz wasmvm-0.10.0"),
 		cty.StringVal("mkdir -p $HOME/.darknode/bin"),
-		cty.StringVal("mkdir -p $HOME/.config/systemd/use"),
+		cty.StringVal("mkdir -p $HOME/.config/systemd/user"),
 		cty.StringVal("mv $HOME/config.json $HOME/.darknode/config.json"),
+		cty.StringVal("mv $HOME/genesis.json $HOME/.darknode/genesis.json"),
+		cty.StringVal("mv $HOME/darknode.service $HOME/.config/systemd/user/darknode.service"),
 		cty.StringVal(fmt.Sprintf("curl -sL https://www.github.com/renproject/darknode-release/releases/download/%v/darknode > ~/.darknode/bin/darknode", do.LatestVersion)),
 		cty.StringVal("chmod +x ~/.darknode/bin/darknod"),
 		cty.StringVal(fmt.Sprintf("echo %s > ~/.darknode/version", do.LatestVersion)),
@@ -491,10 +497,6 @@ func (do doTerraform) GenerateTerraformConfig() []byte {
 	connection4Body.AppendUnstructuredTokens(key)
 	connection4Body.AppendNewline()
 
-	//resource "digitalocean_floating_ip_assignment" "foobar" {
-	//	ip_address = digitalocean_floating_ip.foobar.ip_address
-	//	droplet_id = digitalocean_droplet.foobar.id
-	//}
 	floatingIPBlock := rootBody.AppendNewBlock("resource", []string{"digitalocean_floating_ip_assignment", "foobar"})
 	floatingIPBody := floatingIPBlock.Body()
 	floatingIPBody.SetAttributeTraversal("ip_address", hcl.Traversal{
