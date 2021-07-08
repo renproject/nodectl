@@ -149,8 +149,8 @@ func (p providerDO) Deploy(ctx *cli.Context) error {
 	if err := applyTerraform(name); err != nil {
 		return err
 	}
-	color.Green("Your darknode is up and running")
 	log.Printf("name = %v, region = %v, droplet = %v, version = %v", name, region.Name, droplet, version)
+	color.Green("Your darknode is up and running")
 	return nil
 }
 
