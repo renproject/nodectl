@@ -150,7 +150,7 @@ func (p providerDO) Deploy(ctx *cli.Context) error {
 		return err
 	}
 	color.Green("Your darknode is up and running")
-	//log.Printf("name = %v, region = %v, droplet = %v, version = %v", name, region.Name, droplet, version)
+	log.Printf("name = %v, region = %v, droplet = %v, version = %v", name, region.Name, droplet, version)
 	return nil
 }
 
