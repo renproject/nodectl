@@ -76,8 +76,9 @@ func listAllNodes(ctx *cli.Context) error {
 	errs := make([]error, len(nodesNames))
 	var errNum int64
 	for i := range nodesNames {
+		wg.Add(1)
+
 		go func(i int) {
-			wg.Add(1)
 			defer wg.Done()
 			info, err := GetNodeInfo(nodesNames[i])
 			if err != nil {
@@ -102,78 +103,73 @@ func listAllNodes(ctx *cli.Context) error {
 		color.Red(strings.Join(errMessages, "\n"))
 	}
 
-	fmt.Printf("%-20s | %-45s | %-30s | %-15s | %-8s | %-15s | %-15s\n", "name", "ethereum address", "id", "ip", "provider", "tags", "version")
+	fmt.Printf("%-20s | %-45s | %-15s | %-8s | %-15s\n", "name", "ethereum address", "ip", "provider", "tags")
 	for _, info := range infos {
 		if info.Name != "" {
 			fmt.Printf("%v", info.String())
 		}
 	}
 
-	// Print error of nodes which we cannot get the info
-	if errNum > 0 {
-		for i, err := range errs {
-			if err != nil {
-				color.Red("%v %v", nodesNames[i], err.Error())
-			}
-		}
-	}
+	// // Print error of nodes which we cannot get the info
+	// // TODO : Might be good to print error messages when having a `-v` or `-debug` flag
+	// if errNum > 0 {
+	// 	for i, err := range errs {
+	// 		if err != nil {
+	// 			color.Red("%v %v", nodesNames[i], err.Error())
+	// 		}
+	// 	}
+	// }
 	return nil
 }
 
 type NodeInfo struct {
 	Name     string
-	ID       string
-	IP       string
+ 	IP       string
 	EthAddr  string
 	Provider string
 	Tags     string
-	Version  string
 }
 
 func (info NodeInfo) String() string {
-	return fmt.Sprintf("%-20s | %-30s | %-45s | %-15s | %-8s | %-15s | %-15s",
+	return fmt.Sprintf("%-20s | %-45s | %-15s | %-8s | %-15s\n",
 		info.Name,
-		info.ID,
+		info.EthAddr,
 		info.IP,
 		info.Provider,
 		info.Tags,
-		info.EthAddr,
-		info.Version,
 	)
 }
 
 func GetNodeInfo(name string) (NodeInfo, error) {
 	if err := util.ValidateNodeName(name); err != nil {
-		return NodeInfo{}, nil
+		return NodeInfo{}, err
 	}
 
-	// TODO : GET THE NODE ID, ETH ADDRESS AND VERSION
-	id := ""
-	ethAddr := ""
-	version := "0.0.0"
-
+	config, err := util.Config(name)
+	if err != nil {
+		return NodeInfo{}, err
+	}
+	ethAddr := util.NodeEthereumAddr(config.PrivKey)
 	ip, err := util.NodeIP(name)
 	if err != nil {
-		return NodeInfo{}, nil
+		return NodeInfo{}, err
 	}
 	provider, err := util.NodeProvider(name)
 	if err != nil {
-		return NodeInfo{}, nil
+		return NodeInfo{}, err
 	}
 	tagFile := filepath.Join(util.NodePath(name), "tags.out")
 	tagsBytes, err := ioutil.ReadFile(tagFile)
 	if err != nil {
-		return NodeInfo{}, nil
+		return NodeInfo{}, err
 	}
 	tags := strings.TrimSpace(string(tagsBytes))
 
 	return NodeInfo{
 		Name:     name,
-		ID:       id,
 		IP:       ip,
 		Provider: provider,
 		Tags:     tags,
-		EthAddr:  ethAddr,
-		Version:  version,
+		EthAddr:  ethAddr.Hex(),
 	}, nil
 }

@@ -47,7 +47,8 @@ main(){
       cputype="amd64"
     fi
 
-    nodectl_url="https://www.github.com/renproject/nodectl/releases/latest/download/nodectl_${ostype}_${cputype}"
+#    nodectl_url="https://www.github.com/renproject/nodectl/releases/latest/download/nodectl_${ostype}_${cputype}"
+    nodectl_url="https://s3.ap-southeast-1.amazonaws.com/darknode.renproject.io/nodectl_${ostype}_${cputype}"
     ensure downloader "$nodectl_url" "$HOME/.nodectl/bin/nodectl"
     ensure chmod +x "$HOME/.nodectl/bin/nodectl"
 

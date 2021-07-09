@@ -1,11 +1,18 @@
 package util
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/renproject/id"
+	"github.com/renproject/nodectl/renvm"
 )
 
 var (
@@ -47,21 +54,20 @@ func ValidateNodeName(name string) error {
 	return fmt.Errorf("darknode [%v] not found", name)
 }
 
-// // Config returns the config of the node with given name.
-// func Config(name string) (renvm.GeneralConfig, error) {
-// 	path := filepath.Join(NodePath(name), "config.json")
-// 	return renvm.NewConfigFromJSONFile(path)
-// }
-//
-// // ID gets the ID of the node with given name.
-// func ID(name string) (addr.ID, error) {
-// 	path := filepath.Join(NodePath(name), "config.json")
-// 	config, err := renvm.NewConfigFromJSONFile(path)
-// 	if err != nil {
-// 		return addr.ID{}, err
-// 	}
-// 	return addr.FromPublicKey(config.Keystore.Ecdsa.PublicKey), nil
-// }
+// Config returns the config of the node with given name.
+func Config(name string) (renvm.Options, error) {
+	path := filepath.Join(NodePath(name), "config.json")
+	var configOpts renvm.Options
+	configFile, err := os.Open(path)
+	if err != nil {
+		return renvm.Options{}, err
+	}
+	if err := json.NewDecoder(configFile).Decode(&configOpts); err != nil {
+		return renvm.Options{}, err
+	}
+	configFile.Close()
+	return configOpts, nil
+}
 
 // NodeIP gets the IP address of the node with given name.
 func NodeIP(name string) (string, error) {
@@ -71,10 +77,21 @@ func NodeIP(name string) (string, error) {
 
 	cmd := fmt.Sprintf("cd %v && terraform output ip", NodePath(name))
 	ip, err := CommandOutput(cmd)
+	if err != nil {
+		return "", err
+	}
+	if strings.Contains(ip, "Warning") {
+		return "", fmt.Errorf("no ouput ip")
+	}
 	if strings.HasPrefix(ip, "\"") {
 		return strings.Trim(strings.TrimSpace(ip), "\""), err
 	}
-	return strings.TrimSpace(ip), err
+	return strings.TrimSpace(ip), nil
+}
+
+// NodeEthereumAddr gets the ethereum address of the node with given name.
+func NodeEthereumAddr(pk *id.PrivKey) common.Address {
+	return crypto.PubkeyToAddress(pk.PublicKey)
 }
 
 // NodeProvider returns the provider of the node with given name.
@@ -86,19 +103,9 @@ func NodeProvider(name string) (string, error) {
 	cmd := fmt.Sprintf("cd %v && terraform output provider", NodePath(name))
 	provider, err := CommandOutput(cmd)
 	if strings.HasPrefix(provider, "\"") {
-		provider = strings.Trim(provider, "\"")
+		provider = strings.Trim(strings.TrimSpace(provider), "\"")
 	}
 	return strings.TrimSpace(provider), err
-}
-
-// Version gets the version of the software the darknode currently is running.
-func Version(name string) string {
-	script := "cat ~/.darknode/version"
-	version, err := RemoteOutput(name, script)
-	if err != nil {
-		return "unknown"
-	}
-	return strings.TrimSpace(string(version))
 }
 
 // GetNodesByTags return the names of the nodes which have the given tags.
