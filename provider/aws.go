@@ -189,7 +189,7 @@ func (p providerAWS) validateRegionAndInstance(ctx *cli.Context) (string, string
 		indexes := rand.Perm(len(result.Regions))
 		for _, index := range indexes {
 			region = *result.Regions[index].RegionName
-			if p.instanceTypesAvailability(cred, region, instance); err == nil {
+			if err := p.instanceTypesAvailability(cred, region, instance); err == nil {
 				return region, instance, nil
 			}
 		}
@@ -596,7 +596,7 @@ func (aws terraformAWS) GenerateTerraformConfig() []byte {
 		cty.StringVal("mv $HOME/darknode.service $HOME/.config/systemd/user/darknode.service"),
 		// TODO : binary version
 		// cty.StringVal("curl -sL https://www.github.com/renproject/darknode-release/releases/latest/download/darknode > ~/.darknode/bin/darknode"),
-		cty.StringVal("curl -sL https://github.com/renproject/darknode-release/releases/download/0.4-testnet22/darknode > ~/.darknode/bin/darknode"),
+		cty.StringVal("curl -sL https://github.com/renproject/darknode-release/releases/download/0.4-mainnet15/darknode > ~/.darknode/bin/darknode"),
 		cty.StringVal("chmod +x ~/.darknode/bin/darknode"),
 		cty.StringVal("loginctl enable-linger darknode"),
 		cty.StringVal("systemctl --user enable darknode.service"),
