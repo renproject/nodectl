@@ -4,15 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/fatih/color"
-	"github.com/hashicorp/hcl/v2"
-	"github.com/hashicorp/hcl/v2/hclsyntax"
-	"github.com/hashicorp/hcl/v2/hclwrite"
-	"github.com/renproject/aw/wire"
-	"github.com/renproject/multichain"
-	"github.com/renproject/nodectl/renvm"
-	"github.com/zclconf/go-cty/cty"
-	"log"
 	"math/rand"
 	"net/http"
 	"os"
@@ -21,8 +12,16 @@ import (
 	"time"
 
 	"github.com/digitalocean/godo"
+	"github.com/fatih/color"
+	"github.com/hashicorp/hcl/v2"
+	"github.com/hashicorp/hcl/v2/hclsyntax"
+	"github.com/hashicorp/hcl/v2/hclwrite"
+	"github.com/renproject/aw/wire"
+	"github.com/renproject/multichain"
+	"github.com/renproject/nodectl/renvm"
 	"github.com/renproject/nodectl/util"
 	"github.com/urfave/cli/v2"
+	"github.com/zclconf/go-cty/cty"
 )
 
 const DefaultDigitalOceanDroplet = "s-1vcpu-1gb"
@@ -51,16 +50,12 @@ func (p providerDO) Name() string {
 // Deploy implements the `Provider` interface
 func (p providerDO) Deploy(ctx *cli.Context) error {
 	// Validate all input params
-	name := ctx.String("name")
 	if err := validateCommonParams(ctx); err != nil {
 		return err
 	}
+	name := ctx.String("name")
 	network := multichain.Network(ctx.String("network"))
 	region, droplet, err := p.validateRegionAndDroplet(ctx)
-	if err != nil {
-		return err
-	}
-	version, err := util.LatestStableRelease()
 	if err != nil {
 		return err
 	}
@@ -82,16 +77,15 @@ func (p providerDO) Deploy(ctx *cli.Context) error {
 
 	// Getting everything needed by terraform
 	tf := doTerraform{
-		Name:          name,
-		Token:         p.token,
-		Region:        region.Slug,
-		Size:          DefaultDigitalOceanDroplet,
-		ConfigPath:     "", // Will be filled after generating the EIP
-		GenesisPath:   filepath.Join(util.NodePath(name), "genesis.json"),
-		PubKeyPath:    filepath.Join(util.NodePath(name), "ssh_keypair.pub"),
-		PriKeyPath:    filepath.Join(util.NodePath(name), "ssh_keypair"),
-		ServiceFile:    filepath.Join(util.NodePath(name), "darknode.service"),
-		LatestVersion: version,
+		Name:        name,
+		Token:       p.token,
+		Region:      region.Slug,
+		Size:        droplet,
+		ConfigPath:  "", // Will be filled after generating the floating ip
+		GenesisPath: filepath.Join(util.NodePath(name), "genesis.json"),
+		PubKeyPath:  filepath.Join(util.NodePath(name), "ssh_keypair.pub"),
+		PriKeyPath:  filepath.Join(util.NodePath(name), "ssh_keypair"),
+		ServiceFile: filepath.Join(util.NodePath(name), "darknode.service"),
 	}
 
 	// Create the Floating IP
@@ -149,7 +143,6 @@ func (p providerDO) Deploy(ctx *cli.Context) error {
 	if err := applyTerraform(name); err != nil {
 		return err
 	}
-	log.Printf("name = %v, region = %v, droplet = %v, version = %v", name, region.Name, droplet, version)
 	color.Green("Your darknode is up and running")
 	return nil
 }
@@ -200,16 +193,15 @@ func (p providerDO) validateRegionAndDroplet(ctx *cli.Context) (godo.Region, str
 }
 
 type doTerraform struct {
-	Name          string
-	Token         string
-	Region        string
-	Size          string
-	ConfigPath     string
-	GenesisPath   string
-	PubKeyPath    string
-	PriKeyPath    string
-	ServiceFile   string
-	LatestVersion string
+	Name        string
+	Token       string
+	Region      string
+	Size        string
+	ConfigPath  string
+	GenesisPath string
+	PubKeyPath  string
+	PriKeyPath  string
+	ServiceFile string
 }
 
 func (do doTerraform) GenerateStaticIPConfig() []byte {
@@ -355,7 +347,6 @@ func (do doTerraform) GenerateTerraformConfig() []byte {
 		cty.StringVal("wget https://github.com/CosmWasm/wasmvm/archive/v0.10.0.tar.gz"),
 		cty.StringVal("tar -xzf v0.10.0.tar.gz"),
 		cty.StringVal("cd wasmvm-0.10.0/"),
-		cty.StringVal("make build"),
 		cty.StringVal("sudo cp ./api/libgo_cosmwasm.so /usr/lib/"),
 		cty.StringVal("cd .."),
 		cty.StringVal("rm -r v0.10.0.tar.gz wasmvm-0.10.0"),
@@ -423,7 +414,7 @@ func (do doTerraform) GenerateTerraformConfig() []byte {
 		},
 	})
 	connection2Body.SetAttributeValue("type", cty.StringVal("ssh"))
-	connection2Body.SetAttributeValue("user", cty.StringVal("root"))
+	connection2Body.SetAttributeValue("user", cty.StringVal("darknode"))
 	connection2Body.AppendUnstructuredTokens(key)
 	connection2Body.AppendNewline()
 
@@ -461,7 +452,7 @@ func (do doTerraform) GenerateTerraformConfig() []byte {
 		},
 	})
 	connection3Body.SetAttributeValue("type", cty.StringVal("ssh"))
-	connection3Body.SetAttributeValue("user", cty.StringVal("root"))
+	connection3Body.SetAttributeValue("user", cty.StringVal("darknode"))
 	connection3Body.AppendUnstructuredTokens(key)
 	connection3Body.AppendNewline()
 
@@ -474,9 +465,10 @@ func (do doTerraform) GenerateTerraformConfig() []byte {
 		cty.StringVal("mv $HOME/config.json $HOME/.darknode/config.json"),
 		cty.StringVal("mv $HOME/genesis.json $HOME/.darknode/genesis.json"),
 		cty.StringVal("mv $HOME/darknode.service $HOME/.config/systemd/user/darknode.service"),
-		cty.StringVal(fmt.Sprintf("curl -sL https://www.github.com/renproject/darknode-release/releases/download/%v/darknode > ~/.darknode/bin/darknode", do.LatestVersion)),
-		cty.StringVal("chmod +x ~/.darknode/bin/darknod"),
-		cty.StringVal(fmt.Sprintf("echo %s > ~/.darknode/version", do.LatestVersion)),
+		// TODO : binary version
+		// cty.StringVal("curl -sL https://www.github.com/renproject/darknode-release/releases/latest/download/darknode > ~/.darknode/bin/darknode"),
+		cty.StringVal("curl -sL https://github.com/renproject/darknode-release/releases/download/0.4-mainnet15/darknode > ~/.darknode/bin/darknode > ~/.darknode/bin/darknode"),
+		cty.StringVal("chmod +x ~/.darknode/bin/darknode"),
 		cty.StringVal("loginctl enable-linger darknode"),
 		cty.StringVal("systemctl --user enable darknode.service"),
 		cty.StringVal("systemctl --user start darknode.service"),
@@ -493,7 +485,7 @@ func (do doTerraform) GenerateTerraformConfig() []byte {
 		},
 	})
 	connection4Body.SetAttributeValue("type", cty.StringVal("ssh"))
-	connection4Body.SetAttributeValue("user", cty.StringVal("root"))
+	connection4Body.SetAttributeValue("user", cty.StringVal("darknode"))
 	connection4Body.AppendUnstructuredTokens(key)
 	connection4Body.AppendNewline()
 
