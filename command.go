@@ -124,7 +124,7 @@ func listAllNodes(ctx *cli.Context) error {
 
 type NodeInfo struct {
 	Name     string
- 	IP       string
+	IP       string
 	EthAddr  string
 	Provider string
 	Tags     string
