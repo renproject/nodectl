@@ -25,7 +25,7 @@ main() {
     progressBar 10 100
 
     # Initialization
-    ensure mkdir -p "$HOME/.nodectl/nodes"
+    ensure mkdir -p "$HOME/.nodectl/darknodes"
     ensure mkdir -p "$HOME/.nodectl/bin"
     ensure mkdir -p "$HOME/.nodectl/backup"
 

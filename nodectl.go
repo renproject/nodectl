@@ -1,8 +1,11 @@
 package nodectl
 
 import (
+	"bufio"
 	"fmt"
+	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/fatih/color"
 	"github.com/renproject/nodectl/provider"
@@ -48,11 +51,24 @@ func App() *cli.App {
 			Flags:   []cli.Flag{TagsFlag, ForceFlag},
 			Action: func(c *cli.Context) error {
 				name := c.Args().First()
+				force := c.Bool("force")
 				path := util.NodePath(name)
 
 				if err := util.ValidateNodeName(name); err != nil {
 					return err
 				}
+
+				// Confirmation prompt if force prompt is not present
+				if !force {
+					fmt.Println("Are you sure you want to destroy your Darknode? (y/N)")
+					reader := bufio.NewReader(os.Stdin)
+					text, _ := reader.ReadString('\n')
+					input := strings.ToLower(strings.TrimSpace(text))
+					if input != "yes" && input != "y" {
+						return nil
+					}
+				}
+
 				color.Green("Backing up config...")
 				if err := util.BackUpConfig(name); err != nil {
 					return err
