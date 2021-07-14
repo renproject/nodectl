@@ -81,24 +81,22 @@ func (p providerDO) Deploy(ctx *cli.Context) error {
 		Token:       p.token,
 		Region:      region.Slug,
 		Size:        droplet,
-		ConfigPath:  "", // Will be filled after generating the floating ip
 		GenesisPath: filepath.Join(util.NodePath(name), "genesis.json"),
 		PubKeyPath:  filepath.Join(util.NodePath(name), "ssh_keypair.pub"),
 		PriKeyPath:  filepath.Join(util.NodePath(name), "ssh_keypair"),
 		ServiceFile: filepath.Join(util.NodePath(name), "darknode.service"),
 	}
 
-	// Create the Floating IP
-	color.Green("Creating a static IP address for darknode...")
-	fipData := tf.GenerateStaticIPConfig()
-	fipFile, err := os.Create(filepath.Join(util.NodePath(name), "ip.tf"))
+	// Deploy all the cloud services we need
+	color.Green("Deploying darknode...")
+	tfData := tf.GenerateTerraformConfig()
+	tfFile, err := os.Create(filepath.Join(util.NodePath(name), "main.tf"))
 	if err != nil {
 		return err
 	}
-	if _, err := fipFile.Write(fipData); err != nil {
+	if _, err := tfFile.Write(tfData); err != nil {
 		return err
 	}
-	fipFile.Close()
 	if err := applyTerraform(name); err != nil {
 		return err
 	}
@@ -114,7 +112,7 @@ func (p providerDO) Deploy(ctx *cli.Context) error {
 	if err := addr.Sign(opts.PrivKey); err != nil {
 		return fmt.Errorf("cannot sign address: %v", err)
 	}
-	opts.Peers = append(templateOpts.Peers, addr)
+	opts.Peers = append([]wire.Address{addr}, templateOpts.Peers...)
 	opts.Selectors = templateOpts.Selectors
 	opts.Chains = templateOpts.Chains
 	configPath := filepath.Join(util.NodePath(name), "config.json")
@@ -128,21 +126,23 @@ func (p providerDO) Deploy(ctx *cli.Context) error {
 		return err
 	}
 	configFile.Close()
-	tf.ConfigPath = configPath
 
-	// Create the rest service on the cloud
-	color.Green("Deploying darknode...")
-	tfData := tf.GenerateTerraformConfig()
-	tfFile, err := os.Create(filepath.Join(util.NodePath(name), "main.tf"))
+	// Upload the config file to remote instance
+	data, err := json.Marshal(opts)
 	if err != nil {
 		return err
 	}
-	if _, err := tfFile.Write(tfData); err != nil {
+	copyConfig := fmt.Sprintf("echo '%s' > $HOME/.darknode/config.json", string(data))
+	if err := util.RemoteRun(name, copyConfig, "darknode"); err != nil {
 		return err
 	}
-	if err := applyTerraform(name); err != nil {
+
+	// Start the darknode service
+	startService := "systemctl --user start darknode"
+	if err := util.RemoteRun(name, startService, "darknode"); err != nil {
 		return err
 	}
+
 	color.Green("Your darknode is up and running")
 	return nil
 }
@@ -197,14 +197,13 @@ type doTerraform struct {
 	Token       string
 	Region      string
 	Size        string
-	ConfigPath  string
 	GenesisPath string
 	PubKeyPath  string
 	PriKeyPath  string
 	ServiceFile string
 }
 
-func (do doTerraform) GenerateStaticIPConfig() []byte {
+func (do doTerraform) GenerateTerraformConfig() []byte {
 	f := hclwrite.NewEmptyFile()
 	rootBody := f.Body()
 
@@ -217,30 +216,6 @@ func (do doTerraform) GenerateStaticIPConfig() []byte {
 	providerBlock := rootBody.AppendNewBlock("provider", []string{"digitalocean"})
 	providerBody := providerBlock.Body()
 	providerBody.SetAttributeValue("token", cty.StringVal(do.Token))
-
-	floatingIpBlock := rootBody.AppendNewBlock("resource", []string{"digitalocean_floating_ip", "darknode"})
-	floatingIpBody := floatingIpBlock.Body()
-	floatingIpBody.SetAttributeValue("region", cty.StringVal(do.Region))
-
-	outputIPBlock := rootBody.AppendNewBlock("output", []string{"ip"})
-	outputIPBody := outputIPBlock.Body()
-	outputIPBody.SetAttributeTraversal("value", hcl.Traversal{
-		hcl.TraverseRoot{
-			Name: "digitalocean_floating_ip",
-		},
-		hcl.TraverseAttr{
-			Name: "darknode",
-		},
-		hcl.TraverseAttr{
-			Name: "ip_address",
-		},
-	})
-	return f.Bytes()
-}
-
-func (do doTerraform) GenerateTerraformConfig() []byte {
-	f := hclwrite.NewEmptyFile()
-	rootBody := f.Body()
 
 	sshKeyBlock := rootBody.AppendNewBlock("resource", []string{"digitalocean_ssh_key", "darknode"})
 	sshKeyBody := sshKeyBlock.Body()
@@ -342,8 +317,6 @@ func (do doTerraform) GenerateTerraformConfig() []byte {
 		cty.StringVal("sudo ufw allow 18515/tcp"),
 		cty.StringVal("sudo ufw --force enable"),
 		cty.StringVal("sudo apt-get install -y ocl-icd-opencl-dev build-essential libhwloc-dev"),
-		cty.StringVal("curl https://sh.rustup.rs -sSf | sh -s -- -y"),
-		cty.StringVal("source $HOME/.cargo/env"),
 		cty.StringVal("wget https://github.com/CosmWasm/wasmvm/archive/v0.10.0.tar.gz"),
 		cty.StringVal("tar -xzf v0.10.0.tar.gz"),
 		cty.StringVal("cd wasmvm-0.10.0/"),
@@ -399,25 +372,6 @@ func (do doTerraform) GenerateTerraformConfig() []byte {
 	connectionBody.AppendUnstructuredTokens(key)
 	connectionBody.AppendNewline()
 
-	configFileBlock := dropletBody.AppendNewBlock("provisioner", []string{"file"})
-	configFileBody := configFileBlock.Body()
-	configFileBody.SetAttributeValue("source", cty.StringVal(do.ConfigPath))
-	configFileBody.SetAttributeValue("destination", cty.StringVal("$HOME/config.json"))
-	connection2Block := configFileBody.AppendNewBlock("connection", nil)
-	connection2Body := connection2Block.Body()
-	connection2Body.SetAttributeTraversal("host", hcl.Traversal{
-		hcl.TraverseRoot{
-			Name: "self",
-		},
-		hcl.TraverseAttr{
-			Name: "ipv4_address",
-		},
-	})
-	connection2Body.SetAttributeValue("type", cty.StringVal("ssh"))
-	connection2Body.SetAttributeValue("user", cty.StringVal("darknode"))
-	connection2Body.AppendUnstructuredTokens(key)
-	connection2Body.AppendNewline()
-
 	genesisBlock := dropletBody.AppendNewBlock("provisioner", []string{"file"})
 	genesisBody := genesisBlock.Body()
 	genesisBody.SetAttributeValue("source", cty.StringVal(do.GenesisPath))
@@ -462,7 +416,6 @@ func (do doTerraform) GenerateTerraformConfig() []byte {
 		cty.StringVal("set -x"),
 		cty.StringVal("mkdir -p $HOME/.darknode/bin"),
 		cty.StringVal("mkdir -p $HOME/.config/systemd/user"),
-		cty.StringVal("mv $HOME/config.json $HOME/.darknode/config.json"),
 		cty.StringVal("mv $HOME/genesis.json $HOME/.darknode/genesis.json"),
 		cty.StringVal("mv $HOME/darknode.service $HOME/.config/systemd/user/darknode.service"),
 		// TODO : binary version
@@ -471,7 +424,6 @@ func (do doTerraform) GenerateTerraformConfig() []byte {
 		cty.StringVal("chmod +x ~/.darknode/bin/darknode"),
 		cty.StringVal("loginctl enable-linger darknode"),
 		cty.StringVal("systemctl --user enable darknode.service"),
-		cty.StringVal("systemctl --user start darknode.service"),
 	}))
 
 	connection4Block := remoteExec2Body.AppendNewBlock("connection", nil)
@@ -489,20 +441,13 @@ func (do doTerraform) GenerateTerraformConfig() []byte {
 	connection4Body.AppendUnstructuredTokens(key)
 	connection4Body.AppendNewline()
 
-	floatingIPBlock := rootBody.AppendNewBlock("resource", []string{"digitalocean_floating_ip_assignment", "foobar"})
-	floatingIPBody := floatingIPBlock.Body()
-	floatingIPBody.SetAttributeTraversal("ip_address", hcl.Traversal{
-		hcl.TraverseRoot{
-			Name: "digitalocean_floating_ip",
-		},
-		hcl.TraverseAttr{
-			Name: "darknode",
-		},
-		hcl.TraverseAttr{
-			Name: "ip_address",
-		},
-	})
-	floatingIPBody.SetAttributeTraversal("droplet_id", hcl.Traversal{
+	outputProviderBlock := rootBody.AppendNewBlock("output", []string{"provider"})
+	outputProviderBody := outputProviderBlock.Body()
+	outputProviderBody.SetAttributeValue("value", cty.StringVal("do"))
+
+	outputIPBlock := rootBody.AppendNewBlock("output", []string{"ip"})
+	outputIPBody := outputIPBlock.Body()
+	outputIPBody.SetAttributeTraversal("value", hcl.Traversal{
 		hcl.TraverseRoot{
 			Name: "digitalocean_droplet",
 		},
@@ -510,13 +455,9 @@ func (do doTerraform) GenerateTerraformConfig() []byte {
 			Name: "darknode",
 		},
 		hcl.TraverseAttr{
-			Name: "id",
+			Name: "ipv4_address",
 		},
 	})
-
-	outputProviderBlock := rootBody.AppendNewBlock("output", []string{"provider"})
-	outputProviderBody := outputProviderBlock.Body()
-	outputProviderBody.SetAttributeValue("value", cty.StringVal("do"))
 
 	return f.Bytes()
 }

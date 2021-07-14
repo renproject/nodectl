@@ -95,7 +95,6 @@ func (p providerAWS) Deploy(ctx *cli.Context) error {
 		Name:         name,
 		Region:       region,
 		InstanceType: instance,
-		ConfigPath:   "", // Will be filled after generating the EIP
 		GenesisPath:  filepath.Join(util.NodePath(name), "genesis.json"),
 		PubKeyPath:   filepath.Join(util.NodePath(name), "ssh_keypair.pub"),
 		PriKeyPath:   filepath.Join(util.NodePath(name), "ssh_keypair"),
@@ -104,17 +103,16 @@ func (p providerAWS) Deploy(ctx *cli.Context) error {
 		ServiceFile:  filepath.Join(util.NodePath(name), "darknode.service"),
 	}
 
-	// Create the EIP
-	color.Green("Creating a static IP address for darknode...")
-	eipData := tf.GenerateStaticIPConfig()
-	eipFile, err := os.Create(filepath.Join(util.NodePath(name), "ip.tf"))
+	// Create the rest service on the cloud
+	color.Green("Deploying darknode...")
+	tfData := tf.GenerateTerraformConfig()
+	tfFile, err := os.Create(filepath.Join(util.NodePath(name), "main.tf"))
 	if err != nil {
 		return err
 	}
-	if _, err := eipFile.Write(eipData); err != nil {
+	if _, err := tfFile.Write(tfData); err != nil {
 		return err
 	}
-	eipFile.Close()
 	if err := applyTerraform(name); err != nil {
 		return err
 	}
@@ -130,7 +128,7 @@ func (p providerAWS) Deploy(ctx *cli.Context) error {
 	if err := addr.Sign(opts.PrivKey); err != nil {
 		return fmt.Errorf("cannot sign address: %v", err)
 	}
-	opts.Peers = append(templateOpts.Peers, addr)
+	opts.Peers = append([]wire.Address{addr}, templateOpts.Peers...)
 	opts.Selectors = templateOpts.Selectors
 	opts.Chains = templateOpts.Chains
 	configPath := filepath.Join(util.NodePath(name), "config.json")
@@ -144,21 +142,23 @@ func (p providerAWS) Deploy(ctx *cli.Context) error {
 		return err
 	}
 	configFile.Close()
-	tf.ConfigPath = configPath
 
-	// Create the rest service on the cloud
-	color.Green("Deploying darknode...")
-	tfData := tf.GenerateTerraformConfig()
-	tfFile, err := os.Create(filepath.Join(util.NodePath(name), "main.tf"))
+	// Upload the config file to remote instance
+	data, err := json.MarshalIndent(opts, "", "    ")
 	if err != nil {
 		return err
 	}
-	if _, err := tfFile.Write(tfData); err != nil {
+	copyConfig := fmt.Sprintf("echo '%s' > $HOME/.darknode/config.json", string(data))
+	if err := util.RemoteRun(name, copyConfig, "darknode"); err != nil {
 		return err
 	}
-	if err := applyTerraform(name); err != nil {
+
+	// Start the darknode service
+	startService := "systemctl --user start darknode"
+	if err := util.RemoteRun(name, startService, "darknode"); err != nil {
 		return err
 	}
+
 	color.Green("Your darknode is up and running")
 	return nil
 }
@@ -228,7 +228,6 @@ type terraformAWS struct {
 	Name         string
 	Region       string
 	InstanceType string
-	ConfigPath   string
 	GenesisPath  string
 	PubKeyPath   string
 	PriKeyPath   string
@@ -237,7 +236,7 @@ type terraformAWS struct {
 	ServiceFile  string
 }
 
-func (aws terraformAWS) GenerateStaticIPConfig() []byte {
+func (aws terraformAWS) GenerateTerraformConfig() []byte {
 	f := hclwrite.NewEmptyFile()
 	rootBody := f.Body()
 
@@ -247,44 +246,11 @@ func (aws terraformAWS) GenerateStaticIPConfig() []byte {
 	providerBody.SetAttributeValue("access_key", cty.StringVal(aws.AccessKey))
 	providerBody.SetAttributeValue("secret_key", cty.StringVal(aws.SecretKey))
 
-	rootBody.AppendNewBlock("resource", []string{"aws_eip", "darknode"})
-
-	outputIPBlock := rootBody.AppendNewBlock("output", []string{"ip"})
-	outputIPBody := outputIPBlock.Body()
-	outputIPBody.SetAttributeTraversal("value", hcl.Traversal{
-		hcl.TraverseRoot{
-			Name: "aws_eip",
-		},
-		hcl.TraverseAttr{
-			Name: "darknode",
-		},
-		hcl.TraverseAttr{
-			Name: "public_ip",
-		},
-	})
-	return f.Bytes()
-}
-
-func (aws terraformAWS) GenerateTerraformConfig() []byte {
-	f := hclwrite.NewEmptyFile()
-	rootBody := f.Body()
-
-	eipaBlock := rootBody.AppendNewBlock("resource", []string{"aws_eip_association", "darknode"})
-	eipaBody := eipaBlock.Body()
-	eipaBody.SetAttributeTraversal("instance_id", hcl.Traversal{
+	eipBlock := rootBody.AppendNewBlock("resource", []string{"aws_eip", "darknode"})
+	eipBody := eipBlock.Body()
+	eipBody.SetAttributeTraversal("instance", hcl.Traversal{
 		hcl.TraverseRoot{
 			Name: "aws_instance",
-		},
-		hcl.TraverseAttr{
-			Name: "darknode",
-		},
-		hcl.TraverseAttr{
-			Name: "id",
-		},
-	})
-	eipaBody.SetAttributeTraversal("allocation_id", hcl.Traversal{
-		hcl.TraverseRoot{
-			Name: "aws_eip",
 		},
 		hcl.TraverseAttr{
 			Name: "darknode",
@@ -464,7 +430,6 @@ func (aws terraformAWS) GenerateTerraformConfig() []byte {
 		cty.StringVal("sudo ufw allow 18515/tcp"),
 		cty.StringVal("sudo ufw --force enable"),
 		cty.StringVal("sudo apt-get install -y ocl-icd-opencl-dev build-essential libhwloc-dev"),
-		cty.StringVal("curl https://sh.rustup.rs -sSf | sh -s -- -y"),
 		cty.StringVal("wget https://github.com/CosmWasm/wasmvm/archive/v0.10.0.tar.gz"),
 		cty.StringVal("tar -xzf v0.10.0.tar.gz"),
 		cty.StringVal("cd wasmvm-0.10.0/"),
@@ -546,19 +511,6 @@ func (aws terraformAWS) GenerateTerraformConfig() []byte {
 	remoteConnectionBody.AppendUnstructuredTokens(key)
 	remoteConnectionBody.AppendNewline()
 
-	configBlock := instanceBody.AppendNewBlock("provisioner", []string{"file"})
-	configBody := configBlock.Body()
-	configBody.SetAttributeValue("source", cty.StringVal(aws.ConfigPath))
-	configBody.SetAttributeValue("destination", cty.StringVal("$HOME/config.json"))
-	configConnBlock := configBody.AppendNewBlock("connection", nil)
-	configConnBody := configConnBlock.Body()
-	configConnBody.AppendUnstructuredTokens(host)
-	configConnBody.AppendNewline()
-	configConnBody.SetAttributeValue("type", cty.StringVal("ssh"))
-	configConnBody.SetAttributeValue("user", cty.StringVal("darknode"))
-	configConnBody.AppendUnstructuredTokens(key)
-	configConnBody.AppendNewline()
-
 	genesisBlock := instanceBody.AppendNewBlock("provisioner", []string{"file"})
 	genesisBody := genesisBlock.Body()
 	genesisBody.SetAttributeValue("source", cty.StringVal(aws.GenesisPath))
@@ -591,7 +543,6 @@ func (aws terraformAWS) GenerateTerraformConfig() []byte {
 		cty.StringVal("set -x"),
 		cty.StringVal("mkdir -p $HOME/.darknode/bin"),
 		cty.StringVal("mkdir -p $HOME/.config/systemd/user"),
-		cty.StringVal("mv $HOME/config.json $HOME/.darknode/config.json"),
 		cty.StringVal("mv $HOME/genesis.json $HOME/.darknode/genesis.json"),
 		cty.StringVal("mv $HOME/darknode.service $HOME/.config/systemd/user/darknode.service"),
 		// TODO : binary version
@@ -600,7 +551,6 @@ func (aws terraformAWS) GenerateTerraformConfig() []byte {
 		cty.StringVal("chmod +x ~/.darknode/bin/darknode"),
 		cty.StringVal("loginctl enable-linger darknode"),
 		cty.StringVal("systemctl --user enable darknode.service"),
-		cty.StringVal("systemctl --user start darknode.service"),
 	}))
 
 	remoteConnection2Block := remoteExec2Body.AppendNewBlock("connection", nil)
@@ -615,6 +565,20 @@ func (aws terraformAWS) GenerateTerraformConfig() []byte {
 	outputProviderBlock := rootBody.AppendNewBlock("output", []string{"provider"})
 	outputProviderBody := outputProviderBlock.Body()
 	outputProviderBody.SetAttributeValue("value", cty.StringVal("aws"))
+
+	outputIPBlock := rootBody.AppendNewBlock("output", []string{"ip"})
+	outputIPBody := outputIPBlock.Body()
+	outputIPBody.SetAttributeTraversal("value", hcl.Traversal{
+		hcl.TraverseRoot{
+			Name: "aws_eip",
+		},
+		hcl.TraverseAttr{
+			Name: "darknode",
+		},
+		hcl.TraverseAttr{
+			Name: "public_ip",
+		},
+	})
 
 	return f.Bytes()
 }
