@@ -9,15 +9,15 @@ import (
 var (
 	NameFlag = &cli.StringFlag{
 		Name:  "name",
-		Usage: "A unique human-readable `string` for identifying the darknode",
+		Usage: "A unique human-readable `string` for identifying the Darknode",
 	}
 	TagsFlag = &cli.StringFlag{
 		Name:  "tags",
-		Usage: "Multiple human-readable comma separated `strings` for identifying groups of darknodeS",
+		Usage: "Multiple human-readable comma separated `strings` for identifying groups of Darknodes",
 	}
 	ConfigFlag = &cli.StringFlag{
 		Name:  "config",
-		Usage: "Config file for your darknode",
+		Usage: "Config file for your Darknode",
 	}
 	NetworkFlag = &cli.StringFlag{
 		Name:        "network",
@@ -27,7 +27,7 @@ var (
 	}
 	VersionFlag = &cli.StringFlag{
 		Name:  "version",
-		Usage: "Version of darknode you want to upgrade to",
+		Usage: "Version of Darknode you want to upgrade to",
 	}
 	DowngradeFlag = &cli.BoolFlag{
 		Name:  "downgrade",
@@ -41,7 +41,7 @@ var (
 	VerboseFlag = &cli.BoolFlag{
 		Name:    "verbose",
 		Aliases: []string{"v"},
-		Usage:   "Show additional details of darknodes",
+		Usage:   "Show additional details of Darknodes",
 	}
 )
 
@@ -49,7 +49,7 @@ var (
 var (
 	AwsFlag = &cli.BoolFlag{
 		Name:  provider.NameAws,
-		Usage: "AWS will be used to provision the darknode",
+		Usage: "AWS will be used to provision the Darknode",
 	}
 	AwsAccessKeyFlag = &cli.StringFlag{
 		Name:  "aws-access-key",
@@ -81,7 +81,7 @@ var (
 var (
 	DoFlag = &cli.BoolFlag{
 		Name:  provider.NameDo,
-		Usage: "Digital Ocean will be used to provision the darknode",
+		Usage: "Digital Ocean will be used to provision the Darknode",
 	}
 	DoTokenFlag = &cli.StringFlag{
 		Name:  "do-token",
@@ -104,7 +104,7 @@ var (
 var (
 	GcpFlag = &cli.BoolFlag{
 		Name:  provider.NameGcp,
-		Usage: "Google Cloud Platform will be used to provision the darknode",
+		Usage: "Google Cloud Platform will be used to provision the Darknode",
 	}
 	GcpCredFlag = &cli.StringFlag{
 		Name:  "gcp-credentials",
