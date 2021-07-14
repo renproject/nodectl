@@ -7,8 +7,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
-	"strings"
 	"time"
 
 	"golang.org/x/crypto/ssh"
@@ -34,7 +32,7 @@ func BackUpConfig(name string) error {
 	return Run("bash", "-c", backup)
 }
 
-// run the command and pipe the output to the stdout
+// Run the command and pipe the output to the stdout
 func Run(name string, args ...string) error {
 	cmd := exec.Command(name, args...)
 	cmd.Stdin = os.Stdin
@@ -124,28 +122,4 @@ func connect(name, user string) (*ssh.Session, error) {
 	}
 
 	return client.NewSession()
-}
-
-// OpenInBrowser tries to open the url with system default browser. It ignores the error if failing.
-func OpenInBrowser(url string) error {
-	switch runtime.GOOS {
-	case "darwin":
-		SilentRun("open", url)
-	case "linux":
-		if CheckWSL() {
-			SilentRun("cmd.exe", "/C", "start", url)
-		} else {
-			SilentRun("xdg-open", url)
-		}
-	}
-	return nil
-}
-
-// CheckWSL if the linux system is a Subsystem of window.
-func CheckWSL() bool {
-	file, err := ioutil.ReadFile("/proc/version")
-	if err != nil {
-		return false
-	}
-	return strings.Contains(string(file), "Microsoft")
 }
