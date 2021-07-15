@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bramvdbogaerde/go-scp"
+	"github.com/bramvdbogaerde/go-scp/auth"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -84,6 +86,35 @@ func RemoteRun(name, script, username string) error {
 	go io.Copy(os.Stderr, sessStdErr)
 
 	return session.Run(script)
+}
+
+func SCP(name, from, to string) error {
+	clientConfig, err := auth.PrivateKey("darknode", "/path/to/rsa/key", ssh.InsecureIgnoreHostKey())
+	if err != nil {
+		return err
+	}
+
+	// Connect to the instance using ssh
+	ip, err := NodeIP(name)
+	if err != nil {
+		return err
+	}
+	client := scp.NewClient(fmt.Sprintf("%v:22", ip), &clientConfig)
+
+	// Connect to the remote server
+	if err := client.Connect(); err != nil {
+		return err
+	}
+	defer client.Close()
+
+	// Open a file
+	f, err := os.Open(from)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	return client.CopyFile(f, to, "0655")
 }
 
 // RemoteOutput runs the script on the instance which host the darknode of given

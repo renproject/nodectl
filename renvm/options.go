@@ -3,6 +3,8 @@ package renvm
 import (
 	"encoding/json"
 	"net/http"
+	"os"
+	"path/filepath"
 
 	"github.com/renproject/aw/wire"
 	"github.com/renproject/id"
@@ -113,6 +115,21 @@ func NewOptions(network multichain.Network) Options {
 		Profile:  DefaultProfile,
 		Network:  network,
 	}
+}
+
+func NewOptionsFromFile(path string) (Options, error) {
+	path, err := filepath.Abs(path)
+	if err != nil {
+		return Options{}, err
+	}
+	file, err := os.Open(path)
+	if err != nil {
+		return Options{}, err
+	}
+	defer file.Close()
+	var opts Options
+	err = json.NewDecoder(file).Decode(&opts)
+	return opts, err
 }
 
 func OptionTemplate(url string) (Options, error) {

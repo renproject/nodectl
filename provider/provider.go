@@ -125,14 +125,8 @@ func validateCommonParams(ctx *cli.Context) error {
 		if _, err := os.Stat(path); err != nil {
 			return errors.New("config file doesn't exist")
 		}
-
-		jsonFile, err := os.Open(path)
+		_, err = renvm.NewOptionsFromFile(path)
 		if err != nil {
-			return err
-		}
-		defer jsonFile.Close()
-		var config renvm.Options
-		if err := json.NewDecoder(jsonFile).Decode(&config); err != nil {
 			return fmt.Errorf("incompatible config, err = %v", err)
 		}
 	}

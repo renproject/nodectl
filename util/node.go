@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -34,14 +35,33 @@ func ParseNodesFromNameAndTags(name, tags string) ([]string, error) {
 	} else if name == "" && tags != "" {
 		return GetNodesByTags(tags)
 	} else if name != "" && tags == "" {
-		return []string{name}, ValidateNodeName(name)
+		return []string{name}, CheckNodeExistence(name)
 	} else {
 		return nil, ErrTooManyArguments
 	}
 }
 
-// ValidateNodeName checks if there exists a node with given name.
-func ValidateNodeName(name string) error {
+// ValidateName validates the given name. It should
+// 1) Only contains letter, number, "-" and "_".
+// 2) Not more than 32 characters
+// 3) Not start or end with a whitespace.
+func ValidateName(name string) error {
+	if strings.TrimSpace(name) != name {
+		return fmt.Errorf("name cannot have whitespace at beginning or end")
+	}
+
+	nameRegex, err := regexp.Compile("^[a-zA-Z0-9_-]{1,32}$")
+	if err != nil {
+		return err
+	}
+	if !nameRegex.MatchString(name){
+		return fmt.Errorf("no special character and total length should be less than 32 characters")
+	}
+	return nil
+}
+
+// CheckNodeExistence checks if there exists a node with given name.
+func CheckNodeExistence(name string) error {
 	files, err := ioutil.ReadDir(filepath.Join(Directory, "/darknodes"))
 	if err != nil {
 		return err

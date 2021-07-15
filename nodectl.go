@@ -54,7 +54,7 @@ func App() *cli.App {
 				force := c.Bool("force")
 				path := util.NodePath(name)
 
-				if err := util.ValidateNodeName(name); err != nil {
+				if err := util.CheckNodeExistence(name); err != nil {
 					return err
 				}
 
@@ -79,21 +79,29 @@ func App() *cli.App {
 				return util.Run("bash", "-c", destroy)
 			},
 		},
-		// {
-		// 	Name:  "update",
-		// 	Usage: "Update your Ren nodes to the latest version",
-		// 	Flags: []cli.Flag{TagsFlag, VersionFlag, DowngradeFlag},
-		// 	Action: func(c *cli.Context) error {
-		// 		return updateNode(c)
-		// 	},
-		// },
+		{
+			Name:  "update",
+			Usage: "Update your Darknode to the latest version",
+			Flags: []cli.Flag{TagsFlag, VersionFlag},
+			Action: func(c *cli.Context) error {
+				return UpdateDarknode(c)
+			},
+		},
+		{
+			Name:  "recover",
+			Usage: "Recover you Darknode from broken state",
+			Flags: []cli.Flag{TagsFlag, GenesisFlag},
+			Action: func(c *cli.Context) error {
+				return RecoverDarknode(c)
+			},
+		},
 		{
 			Name:  "ssh",
 			Flags: []cli.Flag{},
 			Usage: "SSH into one of your Darknode",
 			Action: func(c *cli.Context) error {
 				name := c.Args().First()
-				if err := util.ValidateNodeName(name); err != nil {
+				if err := util.CheckNodeExistence(name); err != nil {
 					return err
 				}
 				ip, err := util.NodeIP(name)

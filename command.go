@@ -1,14 +1,20 @@
 package nodectl
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
+	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/fatih/color"
+	"github.com/google/go-github/v36/github"
+	"github.com/renproject/nodectl/renvm"
 	"github.com/renproject/nodectl/util"
 	"github.com/urfave/cli/v2"
 )
@@ -141,7 +147,7 @@ func (info NodeInfo) String() string {
 }
 
 func GetNodeInfo(name string) (NodeInfo, error) {
-	if err := util.ValidateNodeName(name); err != nil {
+	if err := util.CheckNodeExistence(name); err != nil {
 		return NodeInfo{}, err
 	}
 
@@ -172,4 +178,133 @@ func GetNodeInfo(name string) (NodeInfo, error) {
 		Tags:     tags,
 		EthAddr:  ethAddr.Hex(),
 	}, nil
+}
+
+func UpdateDarknode(ctx *cli.Context) error {
+	name := ctx.Args().First()
+	tags := ctx.String("tags")
+	version := strings.TrimSpace(ctx.String("version"))
+	nodes, err := util.ParseNodesFromNameAndTags(name, tags)
+	if err != nil {
+		return err
+	}
+
+	// Use latest version if user doesn't provide a version number
+	color.Green("Verifying darknode release ...")
+	if version == "" {
+		version, err = util.LatestStableRelease()
+		if err != nil {
+			return err
+		}
+	} else {
+		if err := validateVersion(version); err != nil {
+			return err
+		}
+	}
+
+	// Updating darknodes
+	color.Green("Updating darknodes to %v...", version)
+	errs := make([]error, len(nodes))
+	wg := new(sync.WaitGroup)
+	for i := range nodes {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+
+			errs[i] = update(nodes[i], version)
+		}(i)
+	}
+	wg.Wait()
+
+	return util.HandleErrs(errs)
+}
+
+func RecoverDarknode(ctx *cli.Context) error {
+	name := ctx.Args().First()
+	tags := ctx.String("tags")
+	dbPath := ctx.String("db")
+	genesisPath := ctx.String("genesis")
+
+	// Validate all the input parameters
+	nodes, err := util.ParseNodesFromNameAndTags(name, tags)
+	if err != nil {
+		return err
+	}
+	dbPath, err = filepath.Abs(dbPath)
+	if err != nil {
+		return err
+	}
+	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
+		return fmt.Errorf("no such file %v", dbPath)
+	}
+	if !strings.HasSuffix(dbPath, "tar.gz") {
+		return fmt.Errorf("invalid database format")
+	}
+	_, err = renvm.NewGenesisFromFile(genesisPath)
+	if err != nil {
+		return err
+	}
+
+	// Update each nodes
+	for _, name := range nodes {
+		// Upload the genesis file
+		data, err := ioutil.ReadFile(genesisPath)
+		if err != nil {
+			return err
+		}
+		genesisScript := fmt.Sprintf("cp ~/.darknode/genesis.json ~/.darknode/genesis-bak.json && echo '%s' > $HOME/.darknode/genesis.json", string(data))
+		if err := util.RemoteRun(name, genesisScript, "darknode"); err != nil {
+			return err
+		}
+
+		// Upload the database file
+		if err := util.SCP(name, genesisPath, "/home/darknode/.darknode/database.tar.gz"); err != nil {
+			return err
+		}
+		dbScript := "mv ~/.darknode/db ~/.darknode/db-bak && tar xzvf database.tar.gz && rm database.tar.gz4"
+		if err := util.RemoteRun(name, dbScript, "darknode"); err != nil {
+			return err
+		}
+
+		// Restart the darknode
+		restartService := "systemctl --user restart darknode"
+		if err := util.RemoteRun(name, restartService, "darknode"); err != nil {
+			return err
+		}
+		color.Green("[%v] has been recovered", name)
+	}
+	return nil
+}
+
+func update(name, ver string) error {
+	url := fmt.Sprintf("https://www.github.com/renproject/darknode-release/releases/download/%v", ver)
+	script := fmt.Sprintf(`curl -sL %v/darknode > ~/.darknode/bin/darknode-new && 
+mv ~/.darknode/bin/darknode-new ~/.darknode/bin/darknode &&
+chmod +x ~/.darknode/bin/darknode && systemctl --user restart darknode`, url)
+	return util.RemoteRun(name, script, "darknode")
+}
+
+func validateVersion(version string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	client := github.NewClient(nil)
+	_, response, err := client.Repositories.GetReleaseByTag(ctx, "renproject", "darknode-release", version)
+	if err != nil {
+		return err
+	}
+
+	// Check the status code of the response
+	switch response.StatusCode {
+	case http.StatusOK:
+		return nil
+	case http.StatusNotFound:
+		return fmt.Errorf("cannot find release [%v] on github", version)
+	default:
+		data, err := ioutil.ReadAll(response.Body)
+		if err != nil {
+			return err
+		}
+		return fmt.Errorf("cannot connect to github, code= %v, err = %v", response.StatusCode, string(data))
+	}
 }

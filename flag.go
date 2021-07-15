@@ -19,6 +19,15 @@ var (
 		Name:  "config",
 		Usage: "Config file for your darknode",
 	}
+	GenesisFlag = &cli.StringFlag{
+		Name:  "genesis",
+		Usage: "Genesis file to recover your darknode",
+	}
+	DatabaseFlag = &cli.StringFlag{
+		Name:        "db",
+		Usage:       "Database  to recover your darknode",
+		DefaultText: "***.tar.gz",
+	}
 	NetworkFlag = &cli.StringFlag{
 		Name:        "network",
 		Value:       "mainnet",

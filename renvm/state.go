@@ -3,7 +3,10 @@ package renvm
 import (
 	"crypto/ecdsa"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/renproject/aw/wire"
@@ -111,6 +114,22 @@ func NewGenesis(network multichain.Network, peers []wire.Address) (State, error)
 			State:   pack.Typed(systemStateEncoded.(pack.Struct)),
 		},
 	}, nil
+}
+
+func NewGenesisFromFile(path string) (State, error) {
+	path, err := filepath.Abs(path)
+	if err != nil {
+		return nil, err
+	}
+	genesisFile, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer genesisFile.Close()
+
+	var genState State
+	err = json.NewDecoder(genesisFile).Decode(&genState)
+	return genState, err
 }
 
 // Compressed RenVM public key in hex encoding

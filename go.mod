@@ -4,6 +4,7 @@ go 1.16
 
 require (
 	github.com/aws/aws-sdk-go v1.38.71
+	github.com/bramvdbogaerde/go-scp v1.0.0
 	github.com/digitalocean/godo v1.62.0
 	github.com/ethereum/go-ethereum v1.10.3
 	github.com/fatih/color v1.12.0
@@ -17,7 +18,7 @@ require (
 	github.com/renproject/surge v1.2.6
 	github.com/urfave/cli/v2 v2.3.0
 	github.com/zclconf/go-cty v1.8.4
-	golang.org/x/crypto v0.0.0-20210322153248-0c34fe9e7dc2
+	golang.org/x/crypto v0.0.0-20210513164829-c07d793c2f9a
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 )
 
