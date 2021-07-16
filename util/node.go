@@ -1,11 +1,9 @@
 package util
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -74,19 +72,10 @@ func CheckNodeExistence(name string) error {
 	return fmt.Errorf("darknode [%v] not found", name)
 }
 
-// Config returns the config of the node with given name.
-func Config(name string) (renvm.Options, error) {
+// NodeOptions returns the config of the node with given name.
+func NodeOptions(name string) (renvm.Options, error) {
 	path := filepath.Join(NodePath(name), "config.json")
-	var configOpts renvm.Options
-	configFile, err := os.Open(path)
-	if err != nil {
-		return renvm.Options{}, err
-	}
-	if err := json.NewDecoder(configFile).Decode(&configOpts); err != nil {
-		return renvm.Options{}, err
-	}
-	configFile.Close()
-	return configOpts, nil
+	return renvm.NewOptionsFromFile(path)
 }
 
 // NodeIP gets the IP address of the node with given name.
@@ -139,7 +128,8 @@ func GetNodesByTags(tags string) ([]string, error) {
 		path := filepath.Join(Directory, "darknodes", f.Name(), "tags.out")
 		tagFile, err := ioutil.ReadFile(path)
 		if err != nil {
-			continue
+			// If the tags.out file doesn't exist, use empty tags.
+			tagFile = []byte{}
 		}
 		if !ValidateTags(string(tagFile), tags) {
 			continue

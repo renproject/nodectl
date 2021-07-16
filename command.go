@@ -67,8 +67,8 @@ func updateServiceStatus(ctx *cli.Context, cmd string) error {
 	return util.HandleErrs(errs)
 }
 
-// listAllNodes will display detail information of your darknodes. Tags can be
-// provided to only show darknodes have the tags
+// listAllNodes will display detail information of your Darknodes. Tags can be
+// provided to only show Darknodes have the tags
 func listAllNodes(ctx *cli.Context) error {
 	tags := ctx.String("tags")
 	nodesNames, err := util.GetNodesByTags(tags)
@@ -151,7 +151,7 @@ func GetNodeInfo(name string) (NodeInfo, error) {
 		return NodeInfo{}, err
 	}
 
-	config, err := util.Config(name)
+	config, err := util.NodeOptions(name)
 	if err != nil {
 		return NodeInfo{}, err
 	}

@@ -2,7 +2,6 @@ package renvm
 
 import (
 	"crypto/ecdsa"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -11,7 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/renproject/aw/wire"
 	"github.com/renproject/id"
-	"github.com/renproject/multichain"
 	"github.com/renproject/pack"
 	"github.com/renproject/surge"
 )
@@ -73,7 +71,7 @@ type SystemStateShardsShard struct {
 	PubKey pack.Bytes   `json:"pubKey"`
 }
 
-func NewGenesis(network multichain.Network, peers []wire.Address) (State, error) {
+func NewGenesis(peers []wire.Address) (State, error) {
 	if len(peers) == 0 {
 		return State{}, fmt.Errorf("fetching signatory : empty darknode address")
 	}
@@ -83,7 +81,11 @@ func NewGenesis(network multichain.Network, peers []wire.Address) (State, error)
 	}
 	shardHash := id.NewMerkleHashFromSignatories([]id.Signatory{shardSignatory})
 
-	pubkey := RenVMPubKey(network)
+	// We have the assumption the last peer is the execution node
+	pubkey, err := AddrToPub(peers[len(peers)-1])
+	if err != nil {
+		return State{}, err
+	}
 	renVMPubKey := (*id.PubKey)(pubkey)
 	renVMPubKeyBytes, err := surge.ToBinary(renVMPubKey)
 	if err != nil {
@@ -132,28 +134,17 @@ func NewGenesisFromFile(path string) (State, error) {
 	return genState, err
 }
 
-// Compressed RenVM public key in hex encoding
-func RenVMPubKey(network multichain.Network) *ecdsa.PublicKey {
-	var pubKeyStr string
-	switch network {
-	case multichain.NetworkDevnet:
-		pubKeyStr = "0232938bc9b3fd09488a77704d102f769b6c89cd33de4b72d309f83bf1b7e26f50"
-	case multichain.NetworkTestnet:
-		pubKeyStr = "030dd65f7db2920bb229912e3f4213dd150e5f972c9b73e9be714d844561ac355c"
-	case multichain.NetworkMainnet:
-		pubKeyStr = "038927457800931c7d44dc94cb0021b4e881f9935c1234dc92f456e32ec019d5d7"
-	default:
-		panic(fmt.Sprintf("unsupport network = %v", network))
+// AddrToPub extracts the public key from the given address. The address must
+// be signed, otherwise an error will be returned.
+func AddrToPub(addr wire.Address) (*ecdsa.PublicKey, error) {
+	zeroSig := id.Signature{}
+	if addr.Signature.Equal(&zeroSig) {
+		return nil, fmt.Errorf("address not signed")
 	}
-
-	// Decode the hex string and get the RenVM public key
-	keyBytes, err := hex.DecodeString(pubKeyStr)
+	buf := make([]byte, surge.SizeHintU8+surge.SizeHintString(addr.Value)+surge.SizeHintU64)
+	hash, err := wire.NewAddressHashWithBuffer(addr.Protocol, addr.Value, addr.Nonce, buf)
 	if err != nil {
-		panic(fmt.Sprintf("invalid public key string from the env variable, err = %v", err))
+		return nil, err
 	}
-	key, err := crypto.DecompressPubkey(keyBytes)
-	if err != nil {
-		panic(fmt.Sprintf("invalid distribute public key, err = %v", err))
-	}
-	return key
+	return crypto.SigToPub(hash[:], addr.Signature[:])
 }

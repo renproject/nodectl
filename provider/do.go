@@ -128,7 +128,7 @@ func (p providerDO) Deploy(ctx *cli.Context) error {
 	configFile.Close()
 
 	// Upload the config file to remote instance
-	data, err := json.Marshal(opts)
+	data, err := json.MarshalIndent(opts, "", "    ")
 	if err != nil {
 		return err
 	}
@@ -420,7 +420,7 @@ func (do doTerraform) GenerateTerraformConfig() []byte {
 		cty.StringVal("mv $HOME/darknode.service $HOME/.config/systemd/user/darknode.service"),
 		// TODO : binary version
 		// cty.StringVal("curl -sL https://www.github.com/renproject/darknode-release/releases/latest/download/darknode > ~/.darknode/bin/darknode"),
-		cty.StringVal("curl -sL https://github.com/renproject/darknode-release/releases/download/0.4-mainnet15/darknode > ~/.darknode/bin/darknode > ~/.darknode/bin/darknode"),
+		cty.StringVal("curl -sL https://github.com/renproject/darknode-release/releases/download/0.4-testnet25/darknode > ~/.darknode/bin/darknode > ~/.darknode/bin/darknode"),
 		cty.StringVal("chmod +x ~/.darknode/bin/darknode"),
 		cty.StringVal("loginctl enable-linger darknode"),
 		cty.StringVal("systemctl --user enable darknode.service"),

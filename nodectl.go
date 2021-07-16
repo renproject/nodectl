@@ -2,6 +2,7 @@ package nodectl
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -142,6 +143,35 @@ func App() *cli.App {
 			Flags: []cli.Flag{TagsFlag},
 			Action: func(c *cli.Context) error {
 				return listAllNodes(c)
+			},
+		},
+		{
+			Name:  "address",
+			Usage: "Show the signed address of the node",
+			Action: func(c *cli.Context) error {
+				name := c.Args().First()
+				if err := util.CheckNodeExistence(name); err != nil {
+					return err
+				}
+				ip, err := util.NodeIP(name)
+				if err != nil {
+					return err
+				}
+				opts, err := util.NodeOptions(name)
+				if err != nil {
+					return err
+				}
+				for _, peer := range opts.Peers{
+					if strings.HasPrefix(peer.Value, ip){
+						data, err := json.MarshalIndent(peer, "", "    ")
+						if err != nil {
+							return err
+						}
+						color.Green("%s", data)
+						return nil
+					}
+				}
+				return fmt.Errorf("cannot fetch darknode address")
 			},
 		},
 	}
