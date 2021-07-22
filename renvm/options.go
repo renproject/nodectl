@@ -13,6 +13,8 @@ import (
 )
 
 var (
+	ConfigURLDevnet = "https://s3.ap-southeast-1.amazonaws.com/darknode.renproject.io/devnet.json"
+
 	ConfigURLTestnet = "https://s3.ap-southeast-1.amazonaws.com/darknode.renproject.io/testnet.json"
 
 	ConfigURLMainnet = "s3://darknode.renproject.io/mainnet.json"

@@ -76,9 +76,16 @@ func (p providerAWS) Deploy(ctx *cli.Context) error {
 	}
 
 	// Fetch the remote config template
-	configURL := renvm.ConfigURLTestnet
-	if network == multichain.NetworkMainnet {
+	var configURL string
+	switch network{
+	case multichain.NetworkDevnet:
+		configURL = renvm.ConfigURLDevnet
+	case multichain.NetworkTestnet:
+		configURL = renvm.ConfigURLTestnet
+	case multichain.NetworkMainnet:
 		configURL = renvm.ConfigURLMainnet
+	default:
+		return errors.New("unknown network")
 	}
 	templateOpts, err := renvm.OptionTemplate(configURL)
 	if err != nil {
@@ -424,12 +431,11 @@ func (aws terraformAWS) GenerateTerraformConfig() []byte {
 		cty.StringVal("sudo DEBIAN_FRONTEND=noninteractive apt-get -y upgrade"),
 		cty.StringVal("sudo DEBIAN_FRONTEND=noninteractive apt-get -y dist-upgrade"),
 		cty.StringVal("sudo DEBIAN_FRONTEND=noninteractive apt-get -y autoremove"),
-		cty.StringVal("until sudo apt-get install -y ufw; do sleep 4; done"),
+		cty.StringVal("until sudo apt-get install -y ufw build-essential libhwloc-dev; do sleep 4; done"),
 		cty.StringVal("sudo ufw limit 22/tcp"),
 		cty.StringVal("sudo ufw allow 18514/tcp"),
 		cty.StringVal("sudo ufw allow 18515/tcp"),
 		cty.StringVal("sudo ufw --force enable"),
-		cty.StringVal("sudo apt-get install -y ocl-icd-opencl-dev build-essential libhwloc-dev"),
 		cty.StringVal("wget https://github.com/CosmWasm/wasmvm/archive/v0.10.0.tar.gz"),
 		cty.StringVal("tar -xzf v0.10.0.tar.gz"),
 		cty.StringVal("cd wasmvm-0.10.0/"),
@@ -547,7 +553,7 @@ func (aws terraformAWS) GenerateTerraformConfig() []byte {
 		cty.StringVal("mv $HOME/darknode.service $HOME/.config/systemd/user/darknode.service"),
 		// TODO : binary version
 		// cty.StringVal("curl -sL https://www.github.com/renproject/darknode-release/releases/latest/download/darknode > ~/.darknode/bin/darknode"),
-		cty.StringVal("curl -sL https://github.com/renproject/darknode-release/releases/download/0.4-testnet25/darknode > ~/.darknode/bin/darknode"),
+		cty.StringVal("curl -sL https://github.com/renproject/darknode-release/releases/download/0.4-testnet26/darknode > ~/.darknode/bin/darknode"),
 		cty.StringVal("chmod +x ~/.darknode/bin/darknode"),
 		cty.StringVal("loginctl enable-linger darknode"),
 		cty.StringVal("systemctl --user enable darknode.service"),
