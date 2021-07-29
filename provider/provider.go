@@ -136,6 +136,7 @@ func validateCommonParams(ctx *cli.Context) error {
 // initialize files for deploying a Darknode
 func initialize(ctx *cli.Context, opts renvm.Options) error {
 	name := ctx.String("name")
+	network := multichain.Network(ctx.String("network"))
 	path := util.NodePath(name)
 
 	// Create directory for the Darknode
@@ -162,7 +163,7 @@ func initialize(ctx *cli.Context, opts renvm.Options) error {
 	}
 
 	// Create the `genesis.json` file
-	state, err := renvm.NewGenesis(opts.Peers)
+	state, err := renvm.GenesisFile(network)
 	if err != nil {
 		return err
 	}

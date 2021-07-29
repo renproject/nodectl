@@ -427,7 +427,7 @@ func (do doTerraform) GenerateTerraformConfig() []byte {
 		cty.StringVal("mv $HOME/darknode.service $HOME/.config/systemd/user/darknode.service"),
 		// TODO : binary version
 		// cty.StringVal("curl -sL https://www.github.com/renproject/darknode-release/releases/latest/download/darknode > ~/.darknode/bin/darknode"),
-		cty.StringVal("curl -sL https://github.com/renproject/darknode-release/releases/download/0.4-testnet26/darknode > ~/.darknode/bin/darknode > ~/.darknode/bin/darknode"),
+		cty.StringVal("curl -sL https://github.com/renproject/darknode-release/releases/download/0.4-devnet55/darknode > ~/.darknode/bin/darknode > ~/.darknode/bin/darknode"),
 		cty.StringVal("chmod +x ~/.darknode/bin/darknode"),
 		cty.StringVal("loginctl enable-linger darknode"),
 		cty.StringVal("systemctl --user enable darknode.service"),

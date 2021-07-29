@@ -4,14 +4,24 @@ import (
 	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/renproject/aw/wire"
 	"github.com/renproject/id"
+	"github.com/renproject/multichain"
 	"github.com/renproject/pack"
 	"github.com/renproject/surge"
+)
+
+var (
+	GenesisURLDevnet = "https://s3.ap-southeast-1.amazonaws.com/darknode.renproject.io/devnet-genesis.json"
+
+	GenesisURLTestnet = "https://s3.ap-southeast-1.amazonaws.com/darknode.renproject.io/testnet-genesis.json"
+
+	GenesisURLMainnet = "todo"
 )
 
 type State []Contract
@@ -71,11 +81,36 @@ type SystemStateShardsShard struct {
 	PubKey pack.Bytes   `json:"pubKey"`
 }
 
+func GenesisFile(network multichain.Network)(State, error){
+	var url string
+	switch network{
+	case multichain.NetworkDevnet:
+		url = GenesisURLDevnet
+	case multichain.NetworkTestnet:
+		url = GenesisURLTestnet
+	case multichain.NetworkMainnet:
+		url = GenesisURLMainnet
+	default:
+		return nil, fmt.Errorf("unknown network = %v", network)
+	}
+
+	response, err := http.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+
+
+	var genState State
+	err = json.NewDecoder(response.Body).Decode(&genState)
+	return genState, err
+}
+
 func NewGenesis(peers []wire.Address) (State, error) {
 	if len(peers) == 0 {
 		return State{}, fmt.Errorf("fetching signatory : empty darknode address")
 	}
-	shardSignatory, err := peers[0].Signatory()
+	shardSignatory, err := peers[len(peers)-1].Signatory()
 	if err != nil {
 		return State{}, err
 	}

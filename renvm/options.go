@@ -13,11 +13,11 @@ import (
 )
 
 var (
-	ConfigURLDevnet = "https://s3.ap-southeast-1.amazonaws.com/darknode.renproject.io/devnet.json"
+	ConfigURLDevnet = "https://s3.ap-southeast-1.amazonaws.com/darknode.renproject.io/devnet-config.json"
 
-	ConfigURLTestnet = "https://s3.ap-southeast-1.amazonaws.com/darknode.renproject.io/testnet.json"
+	ConfigURLTestnet = "https://s3.ap-southeast-1.amazonaws.com/darknode.renproject.io/testnet-config.json"
 
-	ConfigURLMainnet = "s3://darknode.renproject.io/mainnet.json"
+	ConfigURLMainnet = "todo"
 )
 
 // Default options.
