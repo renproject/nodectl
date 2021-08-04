@@ -161,8 +161,8 @@ func App() *cli.App {
 				if err != nil {
 					return err
 				}
-				for _, peer := range opts.Peers{
-					if strings.HasPrefix(peer.Value, ip){
+				for _, peer := range opts.Peers {
+					if strings.HasPrefix(peer.Value, ip) {
 						data, err := json.MarshalIndent(peer, "", "    ")
 						if err != nil {
 							return err

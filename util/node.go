@@ -52,7 +52,7 @@ func ValidateName(name string) error {
 	if err != nil {
 		return err
 	}
-	if !nameRegex.MatchString(name){
+	if !nameRegex.MatchString(name) {
 		return fmt.Errorf("no special character and total length should be less than 32 characters")
 	}
 	return nil

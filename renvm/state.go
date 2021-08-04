@@ -81,9 +81,9 @@ type SystemStateShardsShard struct {
 	PubKey pack.Bytes   `json:"pubKey"`
 }
 
-func GenesisFile(network multichain.Network)(State, error){
+func GenesisFile(network multichain.Network) (State, error) {
 	var url string
-	switch network{
+	switch network {
 	case multichain.NetworkDevnet:
 		url = GenesisURLDevnet
 	case multichain.NetworkTestnet:
@@ -99,7 +99,6 @@ func GenesisFile(network multichain.Network)(State, error){
 		return nil, err
 	}
 	defer response.Body.Close()
-
 
 	var genState State
 	err = json.NewDecoder(response.Body).Decode(&genState)
