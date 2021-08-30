@@ -2,8 +2,6 @@
 
 The `nodectl` is a command-line interface for managing Darknodes on Ren. It is installed on your local workspace, and will automatically create and update machines for you. Currently it supports **macOS** and **Linux**.
 
-![](./docs/darknode-cli-overview.jpg)
-
 ## Installing the tool
 
 To download and install `nodectl`, open a terminal and run:
@@ -12,11 +10,11 @@ To download and install `nodectl`, open a terminal and run:
 curl https://s3.ap-southeast-1.amazonaws.com/darknode.renproject.io/install.sh -sSfL | sh
 ```
 
-This will download the required binaries and install them to the `$HOME/.nodectl` directory. Open a new terminal to begin using the Darknode CLI.
+This will download the required binaries and install them to the `$HOME/.nodectl` directory. Open a new terminal to begin using nodectl.
 
 ## Updating the tool
 
-**Before updating `nodectl`, please make sure you do not have the CLI running in any terminal.**
+**Before updating `nodectl`, please make sure you do not have the tool running in any terminal.**
 
 To update your `nodectl`, open a terminal and run:
 
@@ -24,13 +22,12 @@ To update your `nodectl`, open a terminal and run:
 curl https://s3.ap-southeast-1.amazonaws.com/darknode.renproject.io/update.sh -sSfL | sh
 ```
 
-> Note: make sure you are using Terraform version > 1.0.0 ! To upgrade Terraform, download the executable for your operating system from https://www.terraform.io/downloads.html and copy it to `$HOME/.nodectl/bin/terraform`.
-
 This will update your `nodectl` to the latest version without affecting any of your deployed nodes.
 
-## Usage
+> Note: make sure you are using Terraform version > 1.0.0 ! To upgrade Terraform, download the executable for your operating system from https://www.terraform.io/downloads.html and copy it to `$HOME/.nodectl/bin/terraform`.
 
-_Here there be dragons!_
+
+## Usage
 
 ### Deploy a Darknode
 
@@ -86,10 +83,18 @@ nodectl destroy my-first-darknode
 To avoid the command-line prompt confirming the destruction, use the `--force` argument:
 
 ```sh
-nodectl destroy my-first-darknode --force
+nodectl destroy --force my-first-darknode 
 ```
 
 We do not recommend using the `--force` argument unless you are developing custom tools that manage your Darknodes automatically.
+
+### Get Darknode's peer address
+To get the Darknode's peer address, open a terminal and run:
+
+```sh
+nodectl address my-first-darknode 
+```
+You can send your Darknode's peer address to others to be included in other Darknode's config files.
 
 ### List all Darknodes
 
@@ -133,3 +138,4 @@ To access your Darknode using SSH, open a terminal and run:
 ```sh
 nodectl ssh my-first-darknode
 ```
+
