@@ -3,7 +3,7 @@
 main(){
   # Update this when minimum terraform version is changed.
   min_terraform_ver="1.0.0"
-  cur_terraform_ver="1.0.1"
+  cur_terraform_ver="1.0.5"
 
   # Check if nodectl has been installed
   if ! check_cmd nodectl; then
