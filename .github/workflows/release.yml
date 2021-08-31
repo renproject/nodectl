@@ -11,15 +11,15 @@ jobs:
             - name: Check out code
               uses: actions/checkout@v2
             - name: Get the version
-              id: get_version
-              run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
+              uses: olegtarasov/get-tag@v2.1
+              id: tagName
             - name: Build the binary
               run: |
-                  go build -o nodectl_linux_amd64 -ldflags "-s -w -X main.BinaryVersion=${{ steps.get_version.outputs.VERSION }}"
+                  go build -o nodectl_linux_amd64 -ldflags "-s -w -X main.BinaryVersion=${GIT_TAG_NAME}"
                   mv nodectl_linux_amd64 ./artifacts/
-                  env GOOS=linux CGO_ENABLED=1 CC=aarch64-linux-gnu-gcc-6 CXX=aarch64-linux-gnu-g++-6 GOARCH=arm64 go build -o nodectl_linux_arm -ldflags "-s -w -X main.BinaryVersion=${{ steps.get_version.outputs.VERSION }}"
+                  env GOOS=linux CGO_ENABLED=1 CC=aarch64-linux-gnu-gcc-6 CXX=aarch64-linux-gnu-g++-6 GOARCH=arm64 go build -o nodectl_linux_arm -ldflags "-s -w -X main.BinaryVersion=${GIT_TAG_NAME}"
                   mv nodectl_linux_arm ./artifacts/
-                  env GOOS=darwin CGO_ENABLED=1 CC=o64-clang CXX=o64-clang++ GOARCH=amd64 go build -o nodectl_darwin_amd64 -ldflags "-s -w -X main.BinaryVersion=${{ steps.get_version.outputs.VERSION }}"
+                  env GOOS=darwin CGO_ENABLED=1 CC=o64-clang CXX=o64-clang++ GOARCH=amd64 go build -o nodectl_darwin_amd64 -ldflags "-s -w -X main.BinaryVersion=${GIT_TAG_NAME}"
                   mv nodectl_darwin_amd64 ./artifacts/
             - name: Create Release
               id: create_release
@@ -27,7 +27,7 @@ jobs:
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
               with:
-                  release_name: ${{ env.VER }}
+                  release_name: ${{ env.GIT_TAG_NAME }}
                   draft: false
                   prerelease: false
             - name: Upload binary for darwin/amd64
