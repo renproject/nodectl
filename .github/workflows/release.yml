@@ -19,11 +19,11 @@ jobs:
               id: tagName
             - name: Build the binary
               run: |
-                  go build -o nodectl_linux_amd64 -ldflags "-s -w -X main.BinaryVersion=${GIT_TAG_NAME}"
+                  go build -o nodectl_linux_amd64 -ldflags "-s -w -X main.BinaryVersion=${GIT_TAG_NAME}" ./cmd/nodectl
                   mv nodectl_linux_amd64 ./artifacts/
-                  env GOOS=linux CGO_ENABLED=1 CC=aarch64-linux-gnu-gcc-6 CXX=aarch64-linux-gnu-g++-6 GOARCH=arm64 go build -o nodectl_linux_arm -ldflags "-s -w -X main.BinaryVersion=${GIT_TAG_NAME}"
+                  env GOOS=linux CGO_ENABLED=1 CC=aarch64-linux-gnu-gcc-6 CXX=aarch64-linux-gnu-g++-6 GOARCH=arm64 go build -o nodectl_linux_arm -ldflags "-s -w -X main.BinaryVersion=${GIT_TAG_NAME}" ./cmd/nodectl
                   mv nodectl_linux_arm ./artifacts/
-                  env GOOS=darwin CGO_ENABLED=1 CC=o64-clang CXX=o64-clang++ GOARCH=amd64 go build -o nodectl_darwin_amd64 -ldflags "-s -w -X main.BinaryVersion=${GIT_TAG_NAME}"
+                  env GOOS=darwin CGO_ENABLED=1 CC=o64-clang CXX=o64-clang++ GOARCH=amd64 go build -o nodectl_darwin_amd64 -ldflags "-s -w -X main.BinaryVersion=${GIT_TAG_NAME}" ./cmd/nodectl
                   mv nodectl_darwin_amd64 ./artifacts/
             - name: Create Release
               id: create_release
