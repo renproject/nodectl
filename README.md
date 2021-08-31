@@ -36,7 +36,7 @@ This will update your `nodectl` to the latest version without affecting any of y
 To deploy a Darknode on AWS, open a terminal and run:
 
 ```sh
-nodectl up --name my-first-darknode --aws --aws-access-key YOUR-AWS-ACCESS-KEY --aws-secret-key YOUR-AWS-SECRET-KEY
+nodectl up --name my-first-darknode --network testnet --aws --aws-access-key YOUR-AWS-ACCESS-KEY --aws-secret-key YOUR-AWS-SECRET-KEY
 ``` 
 
 The `nodectl` will automatically use the credentials available at `$HOME/.aws/credentials` if you do not explicitly set the `--access-key` and `--secret-key` arguments.
@@ -45,7 +45,7 @@ By default, it will use the credentials of `default` profile.
 You can also specify the region and instance type you want to use for the Darknode:
 
 ```sh
-nodectl up --name my-first-darknode --aws --aws-access-key YOUR-AWS-ACCESS-KEY --aws-secret-key YOUR-AWS-SECRET-KEY --aws-region eu-west-1 --aws-instance t2.small
+nodectl up --name my-first-darknode --network testnet --aws --aws-access-key YOUR-AWS-ACCESS-KEY --aws-secret-key YOUR-AWS-SECRET-KEY --aws-region eu-west-1 --aws-instance t2.small
 ``` 
 The default instance type is `t3.micro` and region will be random.
 You can find all available regions and instance types at [AWS](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Concepts.RegionsAndAvailabilityZones.html).
@@ -56,34 +56,19 @@ You first need to create an API token.
 To deploy a Darknode on Digital Ocean, open a terminal and run:
 
 ```sh
-nodectl up --name my-first-darknode --do --do-token YOUR-API-TOKEN
+nodectl up --name my-first-darknode --network testnet --do --do-token YOUR-API-TOKEN
 ``` 
 
 You can also specify the region and droplet size you want to use for the Darknode:
 
 ```sh
-nodectl up --name my-first-darknode --do --do-token YOUR-API-TOKEN --do-region nyc1 --do-droplet s-2vcpu-2gb
+nodectl up --name my-first-darknode --network testnet --do --do-token YOUR-API-TOKEN --do-region nyc1 --do-droplet s-2vcpu-2gb
 ``` 
 
 The default droplet size is `s-1vcpu-1gb` and region will be random.
 Be aware some region and droplet size are not available to all users.
 
 You can find all available regions and droplet size slug by using the digital ocean [API](https://developers.digitalocean.com/documentation/v2/#regions).
-
-#### Testnet
-
-If you want to join RenVM testnet instead of mainnet, you can specify the network you want to join when 
-deploying the node. If you don't specify the network, it will default to `mainnet`.
-
-```shell
-
-#  For AWS 
-nodectl up --name my-first-darknode --aws --aws-access-key YOUR-AWS-ACCESS-KEY --aws-secret-key YOUR-AWS-SECRET-KEY --network testnet
-
-#  For digital ocean
-nodectl up --name my-first-darknode --do --do-token YOUR-API-TOKEN --network testnet
-
-```
 
 ### Destroy a Darknode
 
