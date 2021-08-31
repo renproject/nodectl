@@ -70,6 +70,21 @@ Be aware some region and droplet size are not available to all users.
 
 You can find all available regions and droplet size slug by using the digital ocean [API](https://developers.digitalocean.com/documentation/v2/#regions).
 
+#### Testnet
+
+If you want to join RenVM testnet instead of mainnet, you can specify the network you want to join when 
+deploying the node
+
+```shell
+
+#  For AWS 
+nodectl up --name my-first-darknode --aws --aws-access-key YOUR-AWS-ACCESS-KEY --aws-secret-key YOUR-AWS-SECRET-KEY --network testnet
+
+#  For digital ocean
+nodectl up --name my-first-darknode --do --do-token YOUR-API-TOKEN --network testnet
+
+```
+
 ### Destroy a Darknode
 
 _**WARNING: Before destroying a Darknode make sure you have de-registered it, and withdrawn all fees earned! You will not be able to destroy your darknode if it's not fully deregistered. The CLI will guide you to the page where you can deregister your node**_

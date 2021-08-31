@@ -22,7 +22,7 @@ func main() {
 	app := nodectl.App()
 	app.Version = BinaryVersion
 
-	// // Fetch latest release and check if our version is behind.
+	// // Fetch the latest release and check if our version is behind.
 	// checkUpdates(binaryVersion)
 
 	// Start the app
