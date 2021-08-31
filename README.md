@@ -73,7 +73,7 @@ You can find all available regions and droplet size slug by using the digital oc
 #### Testnet
 
 If you want to join RenVM testnet instead of mainnet, you can specify the network you want to join when 
-deploying the node
+deploying the node. If you don't specify the network, it will default to `mainnet`.
 
 ```shell
 
