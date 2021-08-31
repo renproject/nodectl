@@ -38,5 +38,5 @@ jobs:
             - name: Verify the installation process
               run: |
                   curl https://www.github.com/renproject/nodectl/releases/latest/download/install.sh -sSfL | sh
-                  export PATH=$PATH:$HOME/.darknode/bin
+                  export PATH=$PATH:$HOME/.nodectl/bin
                   nodectl --version
