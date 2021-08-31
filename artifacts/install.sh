@@ -5,7 +5,7 @@ set -u
 main() {
     # Update this when minimum terraform version is changed.
     min_terraform_ver="1.0.0"
-    cur_terraform_ver="1.0.1"
+    cur_terraform_ver="1.0.5"
 
     # Exit if `nodectl` is already installed
     if check_cmd nodectl; then
@@ -43,8 +43,7 @@ main() {
     progressBar 50 100
 
     # Download nodectl binary
-    nodectl_url="https://s3.ap-southeast-1.amazonaws.com/darknode.renproject.io/nodectl_${ostype}_${cputype}"
-    # nodectl_url="https://www.github.com/renproject/nodectl/releases/latest/download/nodectl_${ostype}_${cputype}"
+    nodectl_url="https://www.github.com/renproject/nodectl/releases/latest/download/nodectl_${ostype}_${cputype}"
     ensure downloader "$nodectl_url" "$HOME/.nodectl/bin/nodectl"
     ensure chmod +x "$HOME/.nodectl/bin/nodectl"
     progressBar 90 100

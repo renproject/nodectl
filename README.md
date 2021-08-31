@@ -7,7 +7,7 @@ The `nodectl` is a command-line interface for managing Darknodes on Ren. It is i
 To download and install `nodectl`, open a terminal and run:
 
 ```sh
-curl https://s3.ap-southeast-1.amazonaws.com/darknode.renproject.io/install.sh -sSfL | sh
+curl https://www.github.com/renproject/nodectl/releases/latest/download/install.sh -sSfL | sh
 ```
 
 This will download the required binaries and install them to the `$HOME/.nodectl` directory. Open a new terminal to begin using nodectl.
@@ -19,7 +19,7 @@ This will download the required binaries and install them to the `$HOME/.nodectl
 To update your `nodectl`, open a terminal and run:
 
 ```sh
-curl https://s3.ap-southeast-1.amazonaws.com/darknode.renproject.io/update.sh -sSfL | sh
+curl https://www.github.com/renproject/nodectl/releases/latest/download/update.sh -sSfL | sh
 ```
 
 This will update your `nodectl` to the latest version without affecting any of your deployed nodes.
