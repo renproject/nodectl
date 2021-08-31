@@ -27,58 +27,14 @@ jobs:
                   mv nodectl_darwin_amd64 ./artifacts/
             - name: Create Release
               id: create_release
-              uses: actions/create-release@v1
-              env:
-                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              uses: softprops/action-gh-release@v1
               with:
-                  release_name: ${{ env.GIT_TAG_NAME }}
-                  draft: false
-                  prerelease: false
-            - name: Upload binary for darwin/amd64
-              uses: actions/upload-release-asset@v1
-              env:
-                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-              with:
-                  upload_url: ${{ steps.create_release.outputs.upload_url }}
-                  asset_path: ./artifacts/nodectl_darwin_amd64
-                  asset_name: nodectl_darwin_amd64
-                  asset_content_type: application/octet-stream
-            - name: Upload binary for linux/amd64
-              uses: actions/upload-release-asset@v1
-              env:
-                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-              with:
-                  upload_url: ${{ steps.create_release.outputs.upload_url }}
-                  asset_path: ./artifacts/nodectl_linux_amd64
-                  asset_name: nodectl_linux_amd64
-                  asset_content_type: application/octet-stream
-            - name: Upload binary for linux/arm
-              uses: actions/upload-release-asset@v1
-              env:
-                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-              with:
-                  upload_url: ${{ steps.create_release.outputs.upload_url }}
-                  asset_path: ./artifacts/nodectl_linux_arm
-                  asset_name: nodectl_linux_arm
-                  asset_content_type: application/octet-stream
-            - name: Upload install script
-              uses: actions/upload-release-asset@v1
-              env:
-                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-              with:
-                  upload_url: ${{ steps.create_release.outputs.upload_url }}
-                  asset_path: ./artifacts/install.sh
-                  asset_name: install.sh
-                  asset_content_type: text/x-sh; charset=utf-8
-            - name: Upload update script
-              uses: actions/upload-release-asset@v1
-              env:
-                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-              with:
-                  upload_url: ${{ steps.create_release.outputs.upload_url }}
-                  asset_path: ./artifacts/update.sh
-                  asset_name: update.sh
-                  asset_content_type: text/x-sh; charset=utf-8
+                  files: |
+                      ./artifacts/nodectl_darwin_amd64
+                      ./artifacts/nodectl_linux_amd64
+                      ./artifacts/nodectl_linux_arm
+                      ./artifacts/install.sh
+                      ./artifacts/update.sh
             - name: Verify the installation process
               run: |
                   curl https://www.github.com/renproject/nodectl/releases/latest/download/install.sh -sSfL | sh
