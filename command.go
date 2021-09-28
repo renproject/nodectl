@@ -2,7 +2,9 @@ package nodectl
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"github.com/renproject/multichain"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -184,6 +186,7 @@ func UpdateDarknode(ctx *cli.Context) error {
 	name := ctx.Args().First()
 	tags := ctx.String("tags")
 	version := strings.TrimSpace(ctx.String("version"))
+	network := strings.TrimSpace(ctx.String("network"))
 	nodes, err := util.ParseNodesFromNameAndTags(name, tags)
 	if err != nil {
 		return err
@@ -211,7 +214,7 @@ func UpdateDarknode(ctx *cli.Context) error {
 		go func(i int) {
 			defer wg.Done()
 
-			errs[i] = update(nodes[i], version)
+			errs[i] = update(nodes[i], version, network)
 		}(i)
 	}
 	wg.Wait()
@@ -276,11 +279,35 @@ func RecoverDarknode(ctx *cli.Context) error {
 	return nil
 }
 
-func update(name, ver string) error {
+func update(name, ver string, network string) error {
+	var multichainNetwork multichain.Network
+	switch network {
+	case "mainnet":
+		multichainNetwork = multichain.NetworkMainnet
+	case "testnet":
+		multichainNetwork = multichain.NetworkTestnet
+	case "devnet":
+		multichainNetwork = multichain.NetworkDevnet
+	default:
+		return fmt.Errorf("invalid network")
+	}
+
+	options, err := renvm.NewOptionsFromFile(fmt.Sprintf("~/.nodectl/darknode/%v", name))
+	if err != nil {
+		return fmt.Errorf("reading config file: %v", err)
+	}
+	newOptions := renvm.NewOptions(multichainNetwork)
+	newOptions.PrivKey = options.PrivKey
+
+	newOptionsAsString, err := json.Marshal(newOptions)
+	if err != nil {
+		return fmt.Errorf("marshalling new options: %v", err)
+	}
+
 	url := fmt.Sprintf("https://www.github.com/renproject/darknode-release/releases/download/%v", ver)
 	script := fmt.Sprintf(`curl -sL %v/darknode > ~/.darknode/bin/darknode-new && 
 mv ~/.darknode/bin/darknode-new ~/.darknode/bin/darknode &&
-chmod +x ~/.darknode/bin/darknode && systemctl --user restart darknode`, url)
+chmod +x ~/.darknode/bin/darknode && %v > ~/.darknode/config.json && systemctl --user restart darknode`, url, newOptionsAsString)
 	return util.RemoteRun(name, script, "darknode")
 }
 
