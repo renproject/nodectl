@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/renproject/multichain"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -280,26 +279,27 @@ func RecoverDarknode(ctx *cli.Context) error {
 }
 
 func update(name, ver string, network string) error {
-	var multichainNetwork multichain.Network
+	var networkURL string
 	switch network {
 	case "mainnet":
-		multichainNetwork = multichain.NetworkMainnet
+		networkURL = renvm.ConfigURLMainnet
 	case "testnet":
-		multichainNetwork = multichain.NetworkTestnet
+		networkURL = renvm.ConfigURLTestnet
 	case "devnet":
-		multichainNetwork = multichain.NetworkDevnet
+		networkURL = renvm.ConfigURLDevnet
 	default:
 		return fmt.Errorf("invalid network")
 	}
-
-	options, err := renvm.NewOptionsFromFile(fmt.Sprintf("~/.nodectl/darknode/%v", name))
+	options, err := renvm.NewOptionsFromFile(fmt.Sprintf("%v/config.json",util.NodePath(name)))
 	if err != nil {
 		return fmt.Errorf("reading config file: %v", err)
 	}
-	newOptions := renvm.NewOptions(multichainNetwork)
+	newOptions,err := renvm.OptionTemplate(networkURL)
+	if err != nil {
+		return fmt.Errorf("fetching latest options template: %v", err)
+	}
 	newOptions.PrivKey = options.PrivKey
-
-	newOptionsAsString, err := json.Marshal(newOptions)
+	newOptionsAsBytes, err := json.MarshalIndent(newOptions, "", " ")
 	if err != nil {
 		return fmt.Errorf("marshalling new options: %v", err)
 	}
@@ -307,7 +307,7 @@ func update(name, ver string, network string) error {
 	url := fmt.Sprintf("https://www.github.com/renproject/darknode-release/releases/download/%v", ver)
 	script := fmt.Sprintf(`curl -sL %v/darknode > ~/.darknode/bin/darknode-new && 
 mv ~/.darknode/bin/darknode-new ~/.darknode/bin/darknode &&
-chmod +x ~/.darknode/bin/darknode && %v > ~/.darknode/config.json && systemctl --user restart darknode`, url, newOptionsAsString)
+chmod +x ~/.darknode/bin/darknode && echo '%v' > ~/.darknode/config.json && systemctl --user restart darknode`, url, string(newOptionsAsBytes))
 	return util.RemoteRun(name, script, "darknode")
 }
 
