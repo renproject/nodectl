@@ -91,7 +91,7 @@ func App() *cli.App {
 		{
 			Name:  "recover",
 			Usage: "Recover you Darknode from broken state",
-			Flags: []cli.Flag{TagsFlag, GenesisFlag},
+			Flags: []cli.Flag{TagsFlag, GenesisFlag, DatabaseFlag},
 			Action: func(c *cli.Context) error {
 				return RecoverDarknode(c)
 			},
