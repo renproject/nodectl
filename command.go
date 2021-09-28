@@ -225,6 +225,22 @@ func RecoverDarknode(ctx *cli.Context) error {
 	dbPath := ctx.String("db")
 	genesisPath := ctx.String("genesis")
 
+	if dbPath == "" {
+		// Download from snapshot to ~/.nodectl/.temp
+		if err := util.Run("mkdir -p ~/.nodectl/.temp && ..."); err != nil {
+			return err
+		}
+		dbPath = "~/.nodectl/.temp/database.tar.gz"
+	}
+
+	if genesisPath == "" {
+		// Download from snapshot to ~/.nodectl/.temp
+		if err := util.Run("mkdir -p ~/.nodectl/.temp && ..."); err != nil {
+			return err
+		}
+		genesisPath = "~/.nodectl/.temp/genesis.json"
+	}
+
 	// Validate all the input parameters
 	nodes, err := util.ParseNodesFromNameAndTags(name, tags)
 	if err != nil {
@@ -258,10 +274,10 @@ func RecoverDarknode(ctx *cli.Context) error {
 		}
 
 		// Upload the database file
-		if err := util.SCP(name, genesisPath, "/home/darknode/.darknode/database.tar.gz"); err != nil {
+		if err := util.SCP(name, dbPath, "~/.darknode/database.tar.gz"); err != nil {
 			return err
 		}
-		dbScript := "mv ~/.darknode/db ~/.darknode/db-bak && tar xzvf database.tar.gz && rm database.tar.gz4"
+		dbScript := "mv ~/.darknode/db ~/.darknode/db-bak && cd ~/.darknode/ && tar xzvf database.tar.gz && rm database.tar.gz"
 		if err := util.RemoteRun(name, dbScript, "darknode"); err != nil {
 			return err
 		}
