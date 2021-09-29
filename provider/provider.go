@@ -134,7 +134,7 @@ func validateCommonParams(ctx *cli.Context) error {
 }
 
 // initialize files for deploying a Darknode
-func initialize(ctx *cli.Context, opts renvm.Options) error {
+func initialize(ctx *cli.Context) error {
 	name := ctx.String("name")
 	network := multichain.Network(ctx.String("network"))
 	path := util.NodePath(name)

@@ -185,7 +185,6 @@ func UpdateDarknode(ctx *cli.Context) error {
 	name := ctx.Args().First()
 	tags := ctx.String("tags")
 	version := strings.TrimSpace(ctx.String("version"))
-	network := strings.TrimSpace(ctx.String("network"))
 	nodes, err := util.ParseNodesFromNameAndTags(name, tags)
 	if err != nil {
 		return err
@@ -193,19 +192,14 @@ func UpdateDarknode(ctx *cli.Context) error {
 
 	// Use latest version if user doesn't provide a version number
 	color.Green("Verifying darknode release ...")
-	if version == "" {
-		version, err = util.LatestStableRelease()
-		if err != nil {
-			return err
-		}
-	} else {
+	if version != "" {
 		if err := validateVersion(version); err != nil {
 			return err
 		}
 	}
 
 	// Updating darknodes
-	color.Green("Updating darknodes to %v...", version)
+	color.Green("Updating darknodes ...")
 	errs := make([]error, len(nodes))
 	wg := new(sync.WaitGroup)
 	for i := range nodes {
@@ -213,7 +207,10 @@ func UpdateDarknode(ctx *cli.Context) error {
 		go func(i int) {
 			defer wg.Done()
 
-			errs[i] = update(nodes[i], version, network)
+			errs[i] = update(nodes[i], version)
+			if errs[i] == nil {
+				color.Green("darknode [%v] has been updated.", nodes[i])
+			}
 		}(i)
 	}
 	wg.Wait()
@@ -278,32 +275,38 @@ func RecoverDarknode(ctx *cli.Context) error {
 	return nil
 }
 
-func update(name, ver string, network string) error {
-	var networkURL string
-	switch network {
-	case "mainnet":
-		networkURL = renvm.ConfigURLMainnet
-	case "testnet":
-		networkURL = renvm.ConfigURLTestnet
-	case "devnet":
-		networkURL = renvm.ConfigURLDevnet
-	default:
-		return fmt.Errorf("invalid network")
-	}
-	options, err := renvm.NewOptionsFromFile(fmt.Sprintf("%v/config.json",util.NodePath(name)))
+func update(name, ver string) error {
+	path := fmt.Sprintf("%v/config.json", util.NodePath(name))
+	options, err := renvm.NewOptionsFromFile(path)
 	if err != nil {
 		return fmt.Errorf("reading config file: %v", err)
 	}
-	newOptions,err := renvm.OptionTemplate(networkURL)
+	networkURL := renvm.ConfigURL(options.Network)
+
+	// Fetch the latest release if not provided
+	if ver == "" {
+		ver, err = util.LatestRelease(options.Network)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Fetch the latest config template and update the darknode's config
+	newOptions, err := renvm.OptionTemplate(networkURL)
 	if err != nil {
 		return fmt.Errorf("fetching latest options template: %v", err)
 	}
 	newOptions.PrivKey = options.PrivKey
+	newOptions.Home = options.Home
 	newOptionsAsBytes, err := json.MarshalIndent(newOptions, "", " ")
 	if err != nil {
 		return fmt.Errorf("marshalling new options: %v", err)
 	}
+	if err := renvm.OptionsToFile(newOptions, path); err != nil {
+		return fmt.Errorf("update local config : %v", err)
+	}
 
+	// Update binary and config in the remote instance
 	url := fmt.Sprintf("https://www.github.com/renproject/darknode-release/releases/download/%v", ver)
 	script := fmt.Sprintf(`curl -sL %v/darknode > ~/.darknode/bin/darknode-new && 
 mv ~/.darknode/bin/darknode-new ~/.darknode/bin/darknode &&
@@ -332,6 +335,6 @@ func validateVersion(version string) error {
 		if err != nil {
 			return err
 		}
-		return fmt.Errorf("cannot connect to github, code= %v, err = %v", response.StatusCode, string(data))
+		return fmt.Errorf("cannot connect to github, code = %v, err = %v", response.StatusCode, string(data))
 	}
 }

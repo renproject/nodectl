@@ -3,7 +3,6 @@ package provider
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"math/rand"
 	"net/http"
@@ -61,25 +60,21 @@ func (p providerDO) Deploy(ctx *cli.Context) error {
 		return err
 	}
 
-	// Fetch the remote config template
-	var configURL string
-	switch network {
-	case multichain.NetworkDevnet:
-		configURL = renvm.ConfigURLDevnet
-	case multichain.NetworkTestnet:
-		configURL = renvm.ConfigURLTestnet
-	case multichain.NetworkMainnet:
-		configURL = renvm.ConfigURLMainnet
-	default:
-		return errors.New("unknown network")
+	// Get the latest darknode version
+	version, err := util.LatestRelease(network)
+	if err != nil {
+		return err
 	}
+
+	// Fetch the remote config template
+	configURL := renvm.ConfigURL(network)
 	templateOpts, err := renvm.OptionTemplate(configURL)
 	if err != nil {
 		return err
 	}
 
 	// Initialize folder and files for the node
-	if err := initialize(ctx, templateOpts); err != nil {
+	if err := initialize(ctx); err != nil {
 		return err
 	}
 
@@ -93,6 +88,7 @@ func (p providerDO) Deploy(ctx *cli.Context) error {
 		PubKeyPath:  filepath.Join(util.NodePath(name), "ssh_keypair.pub"),
 		PriKeyPath:  filepath.Join(util.NodePath(name), "ssh_keypair"),
 		ServiceFile: filepath.Join(util.NodePath(name), "darknode.service"),
+		Version:     version,
 	}
 
 	// Deploy all the cloud services we need
@@ -209,6 +205,7 @@ type doTerraform struct {
 	PubKeyPath  string
 	PriKeyPath  string
 	ServiceFile string
+	Version     string
 }
 
 func (do doTerraform) GenerateTerraformConfig() []byte {
@@ -425,9 +422,7 @@ func (do doTerraform) GenerateTerraformConfig() []byte {
 		cty.StringVal("mkdir -p $HOME/.config/systemd/user"),
 		cty.StringVal("mv $HOME/genesis.json $HOME/.darknode/genesis.json"),
 		cty.StringVal("mv $HOME/darknode.service $HOME/.config/systemd/user/darknode.service"),
-		// TODO : binary version
-		// cty.StringVal("curl -sL https://www.github.com/renproject/darknode-release/releases/latest/download/darknode > ~/.darknode/bin/darknode"),
-		cty.StringVal("curl -sL https://github.com/renproject/darknode-release/releases/download/0.4-mainnet23/darknode > ~/.darknode/bin/darknode > ~/.darknode/bin/darknode"),
+		cty.StringVal(fmt.Sprintf("curl -sL https://github.com/renproject/darknode-release/releases/download/%v/darknode > ~/.darknode/bin/darknode", do.Version)),
 		cty.StringVal("chmod +x ~/.darknode/bin/darknode"),
 		cty.StringVal("loginctl enable-linger darknode"),
 		cty.StringVal("systemctl --user enable darknode.service"),

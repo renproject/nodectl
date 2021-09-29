@@ -76,24 +76,20 @@ func (p providerAWS) Deploy(ctx *cli.Context) error {
 	}
 
 	// Fetch the remote config template
-	var configURL string
-	switch network {
-	case multichain.NetworkDevnet:
-		configURL = renvm.ConfigURLDevnet
-	case multichain.NetworkTestnet:
-		configURL = renvm.ConfigURLTestnet
-	case multichain.NetworkMainnet:
-		configURL = renvm.ConfigURLMainnet
-	default:
-		return errors.New("unknown network")
-	}
+	configURL := renvm.ConfigURL(network)
 	templateOpts, err := renvm.OptionTemplate(configURL)
 	if err != nil {
 		return err
 	}
 
+	// Get the latest darknode version
+	version, err := util.LatestRelease(network)
+	if err != nil {
+		return err
+	}
+
 	// Initialize folder and files for the node
-	if err := initialize(ctx, templateOpts); err != nil {
+	if err := initialize(ctx); err != nil {
 		return err
 	}
 
@@ -108,6 +104,7 @@ func (p providerAWS) Deploy(ctx *cli.Context) error {
 		AccessKey:    p.accessKey,
 		SecretKey:    p.secretKey,
 		ServiceFile:  filepath.Join(util.NodePath(name), "darknode.service"),
+		Version:      version,
 	}
 
 	// Create the rest service on the cloud
@@ -241,6 +238,7 @@ type terraformAWS struct {
 	AccessKey    string
 	SecretKey    string
 	ServiceFile  string
+	Version      string
 }
 
 func (aws terraformAWS) GenerateTerraformConfig() []byte {
@@ -551,9 +549,7 @@ func (aws terraformAWS) GenerateTerraformConfig() []byte {
 		cty.StringVal("mkdir -p $HOME/.config/systemd/user"),
 		cty.StringVal("mv $HOME/genesis.json $HOME/.darknode/genesis.json"),
 		cty.StringVal("mv $HOME/darknode.service $HOME/.config/systemd/user/darknode.service"),
-		// TODO : binary version
-		// cty.StringVal("curl -sL https://www.github.com/renproject/darknode-release/releases/latest/download/darknode > ~/.darknode/bin/darknode"),
-		cty.StringVal("curl -sL https://github.com/renproject/darknode-release/releases/download/0.4-mainnet23/darknode > ~/.darknode/bin/darknode"),
+		cty.StringVal(fmt.Sprintf("curl -sL https://github.com/renproject/darknode-release/releases/download/%v/darknode > ~/.darknode/bin/darknode", aws.Version)),
 		cty.StringVal("chmod +x ~/.darknode/bin/darknode"),
 		cty.StringVal("loginctl enable-linger darknode"),
 		cty.StringVal("systemctl --user enable darknode.service"),
