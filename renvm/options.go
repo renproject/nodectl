@@ -20,6 +20,21 @@ var (
 	ConfigURLMainnet = "todo"
 )
 
+// ConfigURL returns the url of the config template, the network input must be
+// a valid network, otherwise function will panci.
+func ConfigURL(network multichain.Network) string {
+	switch network {
+	case multichain.NetworkMainnet:
+		return ConfigURLMainnet
+	case multichain.NetworkTestnet:
+		return ConfigURLTestnet
+	case multichain.NetworkDevnet:
+		return ConfigURLDevnet
+	default:
+		panic("invalid network")
+	}
+}
+
 // Default options.
 var (
 	DefaultHome     = "/home/darknode/.darknode"
@@ -97,9 +112,13 @@ type ChainOptions struct {
 	Confirmations    pack.U64                    `json:"confirmations"`
 	MaxConfirmations pack.U64                    `json:"maxConfirmations"`
 	GasLimit         pack.U256                   `json:"gasLimit"`
-	Protocol         pack.String                 `json:"protocol"`
+	Registry         pack.String                 `json:"registry"`
 	Fees             map[multichain.Chain]Fees   `json:"fees"`
 	Extras           map[pack.String]pack.String `json:"extras"`
+
+	// TokenAssets are the supported tokens that originate on this chain, e.g.
+	// USDC, REN for Ethereum.
+	TokenAssets []multichain.Asset `json:"tokenAssets"`
 }
 
 type Fees struct {
@@ -132,6 +151,23 @@ func NewOptionsFromFile(path string) (Options, error) {
 	var opts Options
 	err = json.NewDecoder(file).Decode(&opts)
 	return opts, err
+}
+
+func OptionsToFile(options Options, path string) error {
+	path, err := filepath.Abs(path)
+	if err != nil {
+		return err
+	}
+
+	file, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, os.ModeAppend)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	encoder := json.NewEncoder(file)
+	encoder.SetIndent("", "	")
+	return encoder.Encode(options)
 }
 
 func OptionTemplate(url string) (Options, error) {

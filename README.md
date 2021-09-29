@@ -12,6 +12,12 @@ curl https://www.github.com/renproject/nodectl/releases/latest/download/install.
 
 This will download the required binaries and install them to the `$HOME/.nodectl` directory. Open a new terminal to begin using nodectl.
 
+If you are using a custom shell, you'll need to manually add it to your `PATH`.
+
+```shell
+export PATH=$PATH:$HOME/.nodectl/bin
+```
+
 ## Updating the tool
 
 **Before updating `nodectl`, please make sure you do not have the tool running in any terminal.**

@@ -6,7 +6,7 @@ require (
 	github.com/aws/aws-sdk-go v1.38.71
 	github.com/bramvdbogaerde/go-scp v1.0.0
 	github.com/digitalocean/godo v1.62.0
-	github.com/ethereum/go-ethereum v1.10.3
+	github.com/ethereum/go-ethereum v1.10.8
 	github.com/fatih/color v1.12.0
 	github.com/google/go-github/v36 v36.0.0
 	github.com/hashicorp/go-version v1.3.0
