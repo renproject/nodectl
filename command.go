@@ -315,7 +315,7 @@ chmod +x ~/.darknode/bin/darknode && echo '%v' > ~/.darknode/config.json && syst
 }
 
 func validateVersion(version string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	client := github.NewClient(nil)
