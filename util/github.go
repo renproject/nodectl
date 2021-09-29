@@ -3,14 +3,18 @@ package util
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"os"
 	"path"
 	"regexp"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/go-github/v36/github"
 	"github.com/hashicorp/go-version"
+	"github.com/renproject/multichain"
 	"golang.org/x/oauth2"
 )
 
@@ -65,7 +69,7 @@ func LatestStableRelease() (string, error) {
 	client := GithubClient(ctx)
 	opts := &github.ListOptions{
 		Page:    0,
-		PerPage: 50,
+		PerPage: 100,
 	}
 
 	for {
@@ -107,4 +111,62 @@ func LatestStableRelease() (string, error) {
 	}
 
 	return latest.String(), nil
+}
+
+func LatestRelease(network multichain.Network) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	prefix := ""
+	switch network {
+	case multichain.NetworkMainnet:
+		prefix = "0.4-mainnet"
+	case multichain.NetworkTestnet:
+		prefix = "0.4-testnet"
+	case multichain.NetworkDevnet:
+		prefix = "0.4-devnet"
+	}
+	max := 0
+	tag := ""
+
+	client := GithubClient(ctx)
+	opts := &github.ListOptions{
+		Page:    0,
+		PerPage: 100,
+	}
+	for {
+		releases, response, err := client.Repositories.ListReleases(ctx, "renproject", "darknode-release", opts)
+		if err != nil {
+			return "", err
+		}
+
+		// Verify the status code is 200.
+		if err := VerifyStatusCode(response.Response, http.StatusOK); err != nil {
+			return "", err
+		}
+
+		// Find the latest release tag for the given network
+		for _, release := range releases {
+			if strings.HasPrefix(*release.TagName, prefix) {
+				num, err := strconv.Atoi(strings.TrimPrefix(*release.TagName, prefix))
+				if err != nil {
+					continue
+				}
+				if num > max {
+					max = num
+					tag = *release.TagName
+				}
+			}
+		}
+
+		if response.NextPage == 0 {
+			break
+		}
+		opts.Page = response.NextPage
+	}
+
+	if tag == "" {
+		return "", fmt.Errorf("cannot find any release for %v", network)
+	}
+	return tag, nil
 }

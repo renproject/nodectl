@@ -2,6 +2,7 @@ package nodectl
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -191,19 +192,14 @@ func UpdateDarknode(ctx *cli.Context) error {
 
 	// Use latest version if user doesn't provide a version number
 	color.Green("Verifying darknode release ...")
-	if version == "" {
-		version, err = util.LatestStableRelease()
-		if err != nil {
-			return err
-		}
-	} else {
+	if version != "" {
 		if err := validateVersion(version); err != nil {
 			return err
 		}
 	}
 
 	// Updating darknodes
-	color.Green("Updating darknodes to %v...", version)
+	color.Green("Updating darknodes ...")
 	errs := make([]error, len(nodes))
 	wg := new(sync.WaitGroup)
 	for i := range nodes {
@@ -212,6 +208,9 @@ func UpdateDarknode(ctx *cli.Context) error {
 			defer wg.Done()
 
 			errs[i] = update(nodes[i], version)
+			if errs[i] == nil {
+				color.Green("darknode [%v] has been updated.", nodes[i])
+			}
 		}(i)
 	}
 	wg.Wait()
@@ -277,15 +276,46 @@ func RecoverDarknode(ctx *cli.Context) error {
 }
 
 func update(name, ver string) error {
+	path := fmt.Sprintf("%v/config.json", util.NodePath(name))
+	options, err := renvm.NewOptionsFromFile(path)
+	if err != nil {
+		return fmt.Errorf("reading config file: %v", err)
+	}
+	networkURL := renvm.ConfigURL(options.Network)
+
+	// Fetch the latest release if not provided
+	if ver == "" {
+		ver, err = util.LatestRelease(options.Network)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Fetch the latest config template and update the darknode's config
+	newOptions, err := renvm.OptionTemplate(networkURL)
+	if err != nil {
+		return fmt.Errorf("fetching latest options template: %v", err)
+	}
+	newOptions.PrivKey = options.PrivKey
+	newOptions.Home = options.Home
+	newOptionsAsBytes, err := json.MarshalIndent(newOptions, "", " ")
+	if err != nil {
+		return fmt.Errorf("marshalling new options: %v", err)
+	}
+	if err := renvm.OptionsToFile(newOptions, path); err != nil {
+		return fmt.Errorf("update local config : %v", err)
+	}
+
+	// Update binary and config in the remote instance
 	url := fmt.Sprintf("https://www.github.com/renproject/darknode-release/releases/download/%v", ver)
 	script := fmt.Sprintf(`curl -sL %v/darknode > ~/.darknode/bin/darknode-new && 
 mv ~/.darknode/bin/darknode-new ~/.darknode/bin/darknode &&
-chmod +x ~/.darknode/bin/darknode && systemctl --user restart darknode`, url)
+chmod +x ~/.darknode/bin/darknode && echo '%v' > ~/.darknode/config.json && systemctl --user restart darknode`, url, string(newOptionsAsBytes))
 	return util.RemoteRun(name, script, "darknode")
 }
 
 func validateVersion(version string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	client := github.NewClient(nil)
@@ -305,6 +335,6 @@ func validateVersion(version string) error {
 		if err != nil {
 			return err
 		}
-		return fmt.Errorf("cannot connect to github, code= %v, err = %v", response.StatusCode, string(data))
+		return fmt.Errorf("cannot connect to github, code = %v, err = %v", response.StatusCode, string(data))
 	}
 }
