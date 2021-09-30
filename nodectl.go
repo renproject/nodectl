@@ -174,6 +174,14 @@ func App() *cli.App {
 				return fmt.Errorf("cannot fetch darknode address")
 			},
 		},
+		{
+			Name:  "resize",
+			Usage: "Update your Darknode to the latest version",
+			Flags: []cli.Flag{TagsFlag, StorageFlag},
+			Action: func(c *cli.Context) error {
+				return ResizeDarknode(c)
+			},
+		},
 	}
 
 	// Show error message and display the help page when command is not found.
