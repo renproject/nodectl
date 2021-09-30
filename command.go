@@ -4,10 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/hashicorp/hcl/v2"
+	"github.com/hashicorp/hcl/v2/hclwrite"
+	"github.com/zclconf/go-cty/cty"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -272,6 +276,68 @@ func RecoverDarknode(ctx *cli.Context) error {
 		}
 		color.Green("[%v] has been recovered", name)
 	}
+	return nil
+}
+
+func ResizeDarknode(ctx *cli.Context) error {
+	name := ctx.Args().First()
+	tags := ctx.String("tags")
+	resizeTo := strings.TrimSpace(ctx.String("storage"))
+	nodes, err := util.ParseNodesFromNameAndTags(name, tags)
+	if err != nil {
+		return err
+	}
+
+	for _, node := range nodes {
+		path := filepath.Join(util.NodePath(name), "main.tf")
+		src, err := ioutil.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("reading terraform config file from darknode directory: %v", err)
+		}
+		tfConfigFile, _ := hclwrite.ParseConfig(
+			src, path, hcl.InitialPos,
+		)
+		rootBody := tfConfigFile.Body()
+
+		if providerBlock := rootBody.FirstMatchingBlock("provider", []string{"digitalocean"}); providerBlock != nil {
+			dropletBlock := rootBody.FirstMatchingBlock("resource", []string{"digitalocean_droplet", "darknode"})
+			if dropletBlock == nil {
+				return fmt.Errorf("block not present in terraform config file")
+			}
+			dropletBody := dropletBlock.Body()
+			dropletBody.SetAttributeValue("size", cty.StringVal(resizeTo))
+		} else if providerBlock := rootBody.FirstMatchingBlock("provider", []string{"aws"}); providerBlock != nil {
+			instanceBlock := rootBody.FirstMatchingBlock("resource", []string{"aws_instance", "darknode"})
+			if instanceBlock == nil {
+				return fmt.Errorf("block not present in terraform config file")
+			}
+			rootBlockDeviceBlock := instanceBlock.Body().FirstMatchingBlock("root_block_device", nil)
+			if rootBlockDeviceBlock == nil {
+				return fmt.Errorf("block not present in terraform config file")
+			}
+			sizeAsInt, err := strconv.Atoi(resizeTo)
+			if err == nil {
+				return fmt.Errorf("storage size %v must be a number", resizeTo)
+			}
+			rootBlockDeviceBlock.Body().SetAttributeValue("volume_size", cty.NumberIntVal(int64(sizeAsInt)))
+		} else {
+			return fmt.Errorf("unsupported provider in terraform config file")
+		}
+
+		tfData := tfConfigFile.Bytes()
+		tfFile, err := os.Open(filepath.Join(util.NodePath(node), "main.tf"))
+		if err != nil {
+			return err
+		}
+		if _, err := tfFile.Write(tfData); err != nil {
+			return err
+		}
+		apply := fmt.Sprintf("cd %v && terraform apply -auto-approve -no-color", util.NodePath(name))
+		if err := util.Run("bash", "-c", apply); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
