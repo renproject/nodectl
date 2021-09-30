@@ -52,6 +52,11 @@ var (
 		Aliases: []string{"v"},
 		Usage:   "Show additional details of darknodes",
 	}
+	StorageFlag = &cli.StringFlag{
+		Name:    "size",
+		Aliases: []string{"s"},
+		Usage:   "Resize darknode storage",
+	}
 )
 
 // AWS flags
