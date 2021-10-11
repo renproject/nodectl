@@ -24,6 +24,11 @@ func NodePath(name string) string {
 	return filepath.Join(Directory, "darknodes", name)
 }
 
+// NodeConfigPath return the absolute path of the given darknode's config file.
+func NodeConfigPath(name string) string {
+	return filepath.Join(Directory, "darknodes", name, "config.json")
+}
+
 // BackUpConfig copies the config file of the node to the backup folder under
 // .darknode directory in case something unexpected happens.
 func BackUpConfig(name string) error {

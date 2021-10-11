@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -221,57 +220,50 @@ func UpdateDarknode(ctx *cli.Context) error {
 func RecoverDarknode(ctx *cli.Context) error {
 	name := ctx.Args().First()
 	tags := ctx.String("tags")
-	dbPath := ctx.String("db")
-	genesisPath := ctx.String("genesis")
+	snapshot := ctx.String("snapshot")
 
 	// Validate all the input parameters
 	nodes, err := util.ParseNodesFromNameAndTags(name, tags)
 	if err != nil {
 		return err
 	}
-	dbPath, err = filepath.Abs(dbPath)
-	if err != nil {
-		return err
-	}
-	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
-		return fmt.Errorf("no such file %v", dbPath)
-	}
-	if !strings.HasSuffix(dbPath, "tar.gz") {
-		return fmt.Errorf("invalid database format")
-	}
-	_, err = renvm.NewGenesisFromFile(genesisPath)
-	if err != nil {
-		return err
-	}
 
-	// Update each nodes
-	for _, name := range nodes {
-		// Upload the genesis file
-		data, err := ioutil.ReadFile(genesisPath)
-		if err != nil {
-			return err
-		}
-		genesisScript := fmt.Sprintf("cp ~/.darknode/genesis.json ~/.darknode/genesis-bak.json && echo '%s' > $HOME/.darknode/genesis.json", string(data))
-		if err := util.RemoteRun(name, genesisScript, "darknode"); err != nil {
-			return err
-		}
+	wg := new(sync.WaitGroup)
+	for i := range nodes {
+		wg.Add(1)
+		node := nodes[i]
 
-		// Upload the database file
-		if err := util.SCP(name, genesisPath, "/home/darknode/.darknode/database.tar.gz"); err != nil {
-			return err
-		}
-		dbScript := "mv ~/.darknode/db ~/.darknode/db-bak && tar xzvf database.tar.gz && rm database.tar.gz4"
-		if err := util.RemoteRun(name, dbScript, "darknode"); err != nil {
-			return err
-		}
+		go func() {
+			defer wg.Done()
 
-		// Restart the darknode
-		restartService := "systemctl --user restart darknode"
-		if err := util.RemoteRun(name, restartService, "darknode"); err != nil {
-			return err
-		}
-		color.Green("[%v] has been recovered", name)
+			configPath := util.NodeConfigPath(node)
+			config, err := renvm.NewOptionsFromFile(configPath)
+			if err != nil {
+				color.Red("cannot read darknode %v config file, err = %v", node, err)
+				return
+			}
+
+			snapshotURL := fmt.Sprintf("https://s3.ap-southeast-1.amazonaws.com/darknode.renproject.io/%v-latest.tar.gz", config.Network)
+			if snapshot != "" {
+				snapshotURL = fmt.Sprintf("https://s3.ap-southeast-1.amazonaws.com/darknode.renproject.io/%v", snapshot)
+			}
+
+			// Download the snapshot and replace the current database
+			script := fmt.Sprintf("cd .darknode && mv db db-bak && && mv genesis.json genesis-bak.json && curl -sSOJL %v && tar xzvf %v-latest.tar.gz && rm %v-latest.tar.gz", snapshotURL, config.Network, config.Network)
+			if err := util.RemoteRun(name, script, "darknode"); err != nil {
+				color.Red("failed to fetch snapshot file, err = %v", err)
+				return
+			}
+
+			// Restart the darknode
+			restartService := "systemctl --user restart darknode"
+			if err := util.RemoteRun(name, restartService, "darknode"); err != nil {
+				color.Red("failed to fetch snapshot file, err = %v", err)
+				return
+			}
+		}()
 	}
+	wg.Wait()
 	return nil
 }
 
