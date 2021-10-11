@@ -79,11 +79,11 @@ func (p providerDO) Deploy(ctx *cli.Context) error {
 
 	// Getting everything needed by terraform
 	tf := doTerraform{
+		Network:     network,
 		Name:        name,
 		Token:       p.token,
 		Region:      region.Slug,
 		Size:        droplet,
-		GenesisPath: filepath.Join(util.NodePath(name), "genesis.json"),
 		PubKeyPath:  filepath.Join(util.NodePath(name), "ssh_keypair.pub"),
 		PriKeyPath:  filepath.Join(util.NodePath(name), "ssh_keypair"),
 		ServiceFile: filepath.Join(util.NodePath(name), "darknode.service"),
@@ -118,17 +118,10 @@ func (p providerDO) Deploy(ctx *cli.Context) error {
 	opts.Peers = append([]wire.Address{addr}, templateOpts.Peers...)
 	opts.Selectors = templateOpts.Selectors
 	opts.Chains = templateOpts.Chains
-	configPath := filepath.Join(util.NodePath(name), "config.json")
-	configFile, err := os.Create(configPath)
-	if err != nil {
+	optionsPath := filepath.Join(util.NodePath(name), "config.json")
+	if err := renvm.OptionsToFile(opts, optionsPath); err != nil {
 		return err
 	}
-	encoder := json.NewEncoder(configFile)
-	encoder.SetIndent("", "    ")
-	if err := encoder.Encode(opts); err != nil {
-		return err
-	}
-	configFile.Close()
 
 	// Upload the config file to remote instance
 	data, err := json.MarshalIndent(opts, "", "    ")
@@ -196,6 +189,7 @@ func (p providerDO) validateRegionAndDroplet(ctx *cli.Context) (godo.Region, str
 }
 
 type doTerraform struct {
+	Network     multichain.Network
 	Name        string
 	Token       string
 	Region      string
@@ -325,7 +319,7 @@ func (do doTerraform) GenerateTerraformConfig() []byte {
 		cty.StringVal("cd wasmvm-0.16.1/"),
 		cty.StringVal("sudo cp ./api/libwasmvm.so /usr/lib/"),
 		cty.StringVal("cd .."),
-		cty.StringVal("rm -r v0.10.0.tar.gz wasmvm-0.10.0"),
+		cty.StringVal("rm -r v0.16.1.tar.gz wasmvm-0.16.1"),
 	}))
 
 	connectionBlock := remoteExecBody.AppendNewBlock("connection", nil)
@@ -375,25 +369,6 @@ func (do doTerraform) GenerateTerraformConfig() []byte {
 	connectionBody.AppendUnstructuredTokens(key)
 	connectionBody.AppendNewline()
 
-	genesisBlock := dropletBody.AppendNewBlock("provisioner", []string{"file"})
-	genesisBody := genesisBlock.Body()
-	genesisBody.SetAttributeValue("source", cty.StringVal(do.GenesisPath))
-	genesisBody.SetAttributeValue("destination", cty.StringVal("$HOME/genesis.json"))
-	genesisConnBlock := genesisBody.AppendNewBlock("connection", nil)
-	genesisConnBody := genesisConnBlock.Body()
-	genesisConnBody.SetAttributeTraversal("host", hcl.Traversal{
-		hcl.TraverseRoot{
-			Name: "self",
-		},
-		hcl.TraverseAttr{
-			Name: "ipv4_address",
-		},
-	})
-	genesisConnBody.SetAttributeValue("type", cty.StringVal("ssh"))
-	genesisConnBody.SetAttributeValue("user", cty.StringVal("darknode"))
-	genesisConnBody.AppendUnstructuredTokens(key)
-	genesisConnBody.AppendNewline()
-
 	serviceFileBlock := dropletBody.AppendNewBlock("provisioner", []string{"file"})
 	serviceFileBody := serviceFileBlock.Body()
 	serviceFileBody.SetAttributeValue("source", cty.StringVal(do.ServiceFile))
@@ -413,13 +388,15 @@ func (do doTerraform) GenerateTerraformConfig() []byte {
 	connection3Body.AppendUnstructuredTokens(key)
 	connection3Body.AppendNewline()
 
+	snapshotURL := util.SnapshotURL(do.Network)
 	remoteExec2Block := dropletBody.AppendNewBlock("provisioner", []string{"remote-exec"})
 	remoteExec2Body := remoteExec2Block.Body()
 	remoteExec2Body.SetAttributeValue("inline", cty.ListVal([]cty.Value{
 		cty.StringVal("set -x"),
 		cty.StringVal("mkdir -p $HOME/.darknode/bin"),
 		cty.StringVal("mkdir -p $HOME/.config/systemd/user"),
-		cty.StringVal("mv $HOME/genesis.json $HOME/.darknode/genesis.json"),
+		cty.StringVal(fmt.Sprintf("cd .darknode && curl -sSOJL %v && tar xzvf latest.tar.gz", snapshotURL)),
+		cty.StringVal("rm latest.tar.gz"),
 		cty.StringVal("mv $HOME/darknode.service $HOME/.config/systemd/user/darknode.service"),
 		cty.StringVal(fmt.Sprintf("curl -sL https://github.com/renproject/darknode-release/releases/download/%v/darknode > ~/.darknode/bin/darknode", do.Version)),
 		cty.StringVal("chmod +x ~/.darknode/bin/darknode"),

@@ -528,7 +528,7 @@ func (aws terraformAWS) GenerateTerraformConfig() []byte {
 		cty.StringVal("mkdir -p $HOME/.darknode/bin"),
 		cty.StringVal("mkdir -p $HOME/.config/systemd/user"),
 		cty.StringVal(fmt.Sprintf("cd .darknode && curl -sSOJL %v && tar xzvf latest.tar.gz", snapshotURL)),
-		cty.StringVal("rm .darknode/latest.tar.gz"),
+		cty.StringVal("rm latest.tar.gz"),
 		cty.StringVal("mv $HOME/darknode.service $HOME/.config/systemd/user/darknode.service"),
 		cty.StringVal(fmt.Sprintf("curl -sL https://github.com/renproject/darknode-release/releases/download/%v/darknode > ~/.darknode/bin/darknode", aws.Version)),
 		cty.StringVal("chmod +x ~/.darknode/bin/darknode"),
