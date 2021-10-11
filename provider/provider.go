@@ -1,7 +1,6 @@
 package provider
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -89,17 +88,12 @@ func ParseProvider(ctx *cli.Context) (Provider, error) {
 
 // Validate the params which are general to all providers.
 func validateCommonParams(ctx *cli.Context) error {
-	// Check the name is not empty and not exceeding max length
+	// Check the name valida and not been used
 	name := ctx.String("name")
-	if name == "" {
-		return ErrEmptyName
+	if err := util.ValidateName(name); err != nil {
+		return err
 	}
-	if len(name) > MaxNameLength {
-		return ErrNameTooLong
-	}
-
-	// Check the name isn't used.
-	if _, err := os.Stat(util.NodePath(name)); err == nil {
+	if err := util.NodeExistence(name); err == nil {
 		return fmt.Errorf("node [%v] already exist", name)
 	}
 
@@ -127,7 +121,7 @@ func validateCommonParams(ctx *cli.Context) error {
 		}
 		_, err = renvm.NewOptionsFromFile(path)
 		if err != nil {
-			return fmt.Errorf("incompatible config, err = %v", err)
+			return fmt.Errorf("incompatible config, err = %w", err)
 		}
 	}
 	return nil
@@ -136,7 +130,6 @@ func validateCommonParams(ctx *cli.Context) error {
 // initialize files for deploying a Darknode
 func initialize(ctx *cli.Context) error {
 	name := ctx.String("name")
-	network := multichain.Network(ctx.String("network"))
 	path := util.NodePath(name)
 
 	// Create directory for the Darknode
@@ -158,22 +151,7 @@ func initialize(ctx *cli.Context) error {
 
 	// Generate the `darknode.service` file
 	servicePath := filepath.Join(path, "darknode.service")
-	if err := ioutil.WriteFile(servicePath, []byte(DarknodeService), 0600); err != nil {
-		return err
-	}
-
-	// Create the `genesis.json` file
-	state, err := renvm.GenesisFile(network)
-	if err != nil {
-		return err
-	}
-	stateBytes, err := json.MarshalIndent(state, "", "    ")
-	if err != nil {
-		return err
-	}
-	statePath := filepath.Join(path, "genesis.json")
-	err = ioutil.WriteFile(statePath, stateBytes, 0600)
-	return err
+	return ioutil.WriteFile(servicePath, []byte(DarknodeService), 0600)
 }
 
 func applyTerraform(name string) error {

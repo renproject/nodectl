@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"path"
 	"regexp"
 	"strconv"
 	"strings"
@@ -18,10 +17,10 @@ import (
 	"golang.org/x/oauth2"
 )
 
-// GithubClient initialize the github client. If an access token has been set in a environment,
+// GithubClient initialize the github client. If an access token has been set as an environment,
 // it will use it for oauth to avoid rate limiting.
 func GithubClient(ctx context.Context) *github.Client {
-	accessToken := os.Getenv("ACCESS_TOKEN")
+	accessToken := os.Getenv("GITHUB_ACCESS_TOKEN")
 	var client *http.Client
 	if accessToken != "" {
 		ts := oauth2.StaticTokenSource(
@@ -31,30 +30,6 @@ func GithubClient(ctx context.Context) *github.Client {
 	}
 
 	return github.NewClient(client)
-}
-
-// CurrentReleaseVersion queries the Github API and fetch the latest release version of darknode-cli.
-func CurrentReleaseVersion(ctx context.Context) (*version.Version, error) {
-	client := GithubClient(ctx)
-	release, response, err := client.Repositories.GetLatestRelease(ctx, "renproject", "darknode-cli")
-	if err != nil {
-		return nil, err
-	}
-
-	// Verify the status code is 200.
-	if err := VerifyStatusCode(response.Response, http.StatusOK); err != nil {
-		return nil, err
-	}
-	return version.NewVersion(release.GetTagName())
-}
-
-func CliLatestVersion() (*version.Version, error) {
-	resp, err := http.Get("https://www.github.com/renproject/darknode-cli/releases/latest")
-	if err != nil {
-		return nil, err
-	}
-
-	return version.NewVersion(path.Base(resp.Request.URL.String()))
 }
 
 // LatestStableRelease checks the node release repo and return the version of the latest release.
@@ -117,6 +92,8 @@ func LatestRelease(network multichain.Network) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
+	max := 0
+	tag := ""
 	prefix := ""
 	switch network {
 	case multichain.NetworkMainnet:
@@ -126,8 +103,6 @@ func LatestRelease(network multichain.Network) (string, error) {
 	case multichain.NetworkDevnet:
 		prefix = "0.4-devnet"
 	}
-	max := 0
-	tag := ""
 
 	client := GithubClient(ctx)
 	opts := &github.ListOptions{

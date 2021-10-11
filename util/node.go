@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -33,7 +34,7 @@ func ParseNodesFromNameAndTags(name, tags string) ([]string, error) {
 	} else if name == "" && tags != "" {
 		return GetNodesByTags(tags)
 	} else if name != "" && tags == "" {
-		return []string{name}, CheckNodeExistence(name)
+		return []string{name}, NodeExistence(name)
 	} else {
 		return nil, ErrTooManyArguments
 	}
@@ -45,7 +46,7 @@ func ParseNodesFromNameAndTags(name, tags string) ([]string, error) {
 // 3) Not start or end with a whitespace.
 func ValidateName(name string) error {
 	if strings.TrimSpace(name) != name {
-		return fmt.Errorf("name cannot have whitespace at beginning or end")
+		return fmt.Errorf("name cannot have whitespace")
 	}
 
 	nameRegex, err := regexp.Compile("^[a-zA-Z0-9_-]{1,32}$")
@@ -53,23 +54,16 @@ func ValidateName(name string) error {
 		return err
 	}
 	if !nameRegex.MatchString(name) {
-		return fmt.Errorf("no special character and total length should be less than 32 characters")
+		return fmt.Errorf("darknode name should be less than 32 characters and not contain any special character")
 	}
 	return nil
 }
 
-// CheckNodeExistence checks if there exists a node with given name.
-func CheckNodeExistence(name string) error {
-	files, err := ioutil.ReadDir(filepath.Join(Directory, "/darknodes"))
-	if err != nil {
-		return err
-	}
-	for _, f := range files {
-		if f.Name() == name {
-			return nil
-		}
-	}
-	return fmt.Errorf("darknode [%v] not found", name)
+// NodeExistence checks if there exists a node with given name.
+func NodeExistence(name string) error {
+	path := filepath.Join(Directory, "darknodes", name)
+	_, err := os.Stat(path)
+	return err
 }
 
 // NodeOptions returns the config of the node with given name.

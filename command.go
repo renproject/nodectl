@@ -147,7 +147,7 @@ func (info NodeInfo) String() string {
 }
 
 func GetNodeInfo(name string) (NodeInfo, error) {
-	if err := util.CheckNodeExistence(name); err != nil {
+	if err := util.NodeExistence(name); err != nil {
 		return NodeInfo{}, err
 	}
 
@@ -273,7 +273,7 @@ func update(name, ver string) error {
 	if err != nil {
 		return fmt.Errorf("reading config file: %v", err)
 	}
-	networkURL := renvm.ConfigURL(options.Network)
+	networkURL := util.OptionsURL(options.Network)
 
 	// Fetch the latest release if not provided
 	if ver == "" {

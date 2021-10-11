@@ -33,8 +33,6 @@ func App() *cli.App {
 				AwsFlag, AwsAccessKeyFlag, AwsSecretKeyFlag, AwsInstanceFlag, AwsRegionFlag, AwsProfileFlag,
 				// Digital Ocean
 				DoFlag, DoRegionFlag, DoSizeFlag, DoTokenFlag,
-				// Google Cloud Platform
-				GcpFlag, GcpRegionFlag, GcpCredFlag, GcpMachineFlag,
 			},
 			Action: func(ctx *cli.Context) error {
 				// Parse the provider and deploy the node
@@ -55,7 +53,7 @@ func App() *cli.App {
 				force := c.Bool("force")
 				path := util.NodePath(name)
 
-				if err := util.CheckNodeExistence(name); err != nil {
+				if err := util.NodeExistence(name); err != nil {
 					return err
 				}
 
@@ -102,7 +100,7 @@ func App() *cli.App {
 			Usage: "SSH into one of your Darknode",
 			Action: func(c *cli.Context) error {
 				name := c.Args().First()
-				if err := util.CheckNodeExistence(name); err != nil {
+				if err := util.NodeExistence(name); err != nil {
 					return err
 				}
 				ip, err := util.NodeIP(name)
@@ -150,7 +148,7 @@ func App() *cli.App {
 			Usage: "Show the signed address of the node",
 			Action: func(c *cli.Context) error {
 				name := c.Args().First()
-				if err := util.CheckNodeExistence(name); err != nil {
+				if err := util.NodeExistence(name); err != nil {
 					return err
 				}
 				ip, err := util.NodeIP(name)

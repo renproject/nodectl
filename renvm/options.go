@@ -12,29 +12,6 @@ import (
 	"github.com/renproject/pack"
 )
 
-var (
-	ConfigURLDevnet = "https://s3.ap-southeast-1.amazonaws.com/darknode.renproject.io/devnet-config.json"
-
-	ConfigURLTestnet = "https://s3.ap-southeast-1.amazonaws.com/darknode.renproject.io/testnet-config.json"
-
-	ConfigURLMainnet = "todo"
-)
-
-// ConfigURL returns the url of the config template, the network input must be
-// a valid network, otherwise function will panci.
-func ConfigURL(network multichain.Network) string {
-	switch network {
-	case multichain.NetworkMainnet:
-		return ConfigURLMainnet
-	case multichain.NetworkTestnet:
-		return ConfigURLTestnet
-	case multichain.NetworkDevnet:
-		return ConfigURLDevnet
-	default:
-		panic("invalid network")
-	}
-}
-
 // Default options.
 var (
 	DefaultHome     = "/home/darknode/.darknode"
@@ -126,6 +103,7 @@ type Fees struct {
 	BurnFee pack.U64 `json:"burnFee"`
 }
 
+// NewOptions creates a new Options using the default values.
 func NewOptions(network multichain.Network) Options {
 	return Options{
 		Home:     DefaultHome,
@@ -138,6 +116,7 @@ func NewOptions(network multichain.Network) Options {
 	}
 }
 
+// NewOptionsFromFile parses a file to Options.
 func NewOptionsFromFile(path string) (Options, error) {
 	path, err := filepath.Abs(path)
 	if err != nil {
@@ -153,13 +132,14 @@ func NewOptionsFromFile(path string) (Options, error) {
 	return opts, err
 }
 
+// OptionsToFile writes the Options to the target file in json format.
 func OptionsToFile(options Options, path string) error {
 	path, err := filepath.Abs(path)
 	if err != nil {
 		return err
 	}
 
-	file, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, os.ModeAppend)
+	file, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return err
 	}
@@ -170,6 +150,7 @@ func OptionsToFile(options Options, path string) error {
 	return encoder.Encode(options)
 }
 
+// OptionTemplate fetches and returns the Options template from remote server.
 func OptionTemplate(url string) (Options, error) {
 	response, err := http.Get(url)
 	if err != nil {

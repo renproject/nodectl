@@ -33,7 +33,7 @@ type providerAWS struct {
 	secretKey string
 }
 
-// NewAWS creates a AWS provider.
+// NewAWS creates an AWS provider.
 func NewAWS(ctx *cli.Context) (Provider, error) {
 	accessKey := ctx.String("aws-access-key")
 	secretKey := ctx.String("aws-secret-key")
@@ -76,8 +76,7 @@ func (p providerAWS) Deploy(ctx *cli.Context) error {
 	}
 
 	// Fetch the remote config template
-	configURL := renvm.ConfigURL(network)
-	templateOpts, err := renvm.OptionTemplate(configURL)
+	templateOpts, err := renvm.OptionTemplate(util.OptionsURL(network))
 	if err != nil {
 		return err
 	}
@@ -95,10 +94,10 @@ func (p providerAWS) Deploy(ctx *cli.Context) error {
 
 	// Getting everything needed by terraform
 	tf := terraformAWS{
+		Network:      network,
 		Name:         name,
 		Region:       region,
 		InstanceType: instance,
-		GenesisPath:  filepath.Join(util.NodePath(name), "genesis.json"),
 		PubKeyPath:   filepath.Join(util.NodePath(name), "ssh_keypair.pub"),
 		PriKeyPath:   filepath.Join(util.NodePath(name), "ssh_keypair"),
 		AccessKey:    p.accessKey,
@@ -135,17 +134,10 @@ func (p providerAWS) Deploy(ctx *cli.Context) error {
 	opts.Peers = append([]wire.Address{addr}, templateOpts.Peers...)
 	opts.Selectors = templateOpts.Selectors
 	opts.Chains = templateOpts.Chains
-	configPath := filepath.Join(util.NodePath(name), "config.json")
-	configFile, err := os.Create(configPath)
-	if err != nil {
+	optionsPath := filepath.Join(util.NodePath(name), "config.json")
+	if err := renvm.OptionsToFile(opts, optionsPath); err != nil {
 		return err
 	}
-	encoder := json.NewEncoder(configFile)
-	encoder.SetIndent("", "    ")
-	if err := encoder.Encode(opts); err != nil {
-		return err
-	}
-	configFile.Close()
 
 	// Upload the config file to remote instance
 	data, err := json.MarshalIndent(opts, "", "    ")
@@ -229,10 +221,10 @@ func (p providerAWS) instanceTypesAvailability(cred *credentials.Credentials, re
 }
 
 type terraformAWS struct {
+	Network      multichain.Network
 	Name         string
 	Region       string
 	InstanceType string
-	GenesisPath  string
 	PubKeyPath   string
 	PriKeyPath   string
 	AccessKey    string
@@ -437,9 +429,9 @@ func (aws terraformAWS) GenerateTerraformConfig() []byte {
 		cty.StringVal("wget https://github.com/CosmWasm/wasmvm/archive/v0.16.1.tar.gz"),
 		cty.StringVal("tar -xzf v0.16.1.tar.gz"),
 		cty.StringVal("cd wasmvm-0.16.1/"),
-		cty.StringVal("sudo cp ./api/libgo_cosmwasm.so /usr/lib/"),
+		cty.StringVal("sudo cp ./api/libwasmvm.so /usr/lib/"),
 		cty.StringVal("cd .."),
-		cty.StringVal("rm -r v0.10.0.tar.gz wasmvm-0.10.0"),
+		cty.StringVal("rm -r v0.16.1.tar.gz wasmvm-0.16.1"),
 	}))
 
 	remoteConnectionBlock := remoteExecBody.AppendNewBlock("connection", nil)
@@ -515,19 +507,6 @@ func (aws terraformAWS) GenerateTerraformConfig() []byte {
 	remoteConnectionBody.AppendUnstructuredTokens(key)
 	remoteConnectionBody.AppendNewline()
 
-	genesisBlock := instanceBody.AppendNewBlock("provisioner", []string{"file"})
-	genesisBody := genesisBlock.Body()
-	genesisBody.SetAttributeValue("source", cty.StringVal(aws.GenesisPath))
-	genesisBody.SetAttributeValue("destination", cty.StringVal("$HOME/genesis.json"))
-	genesisConnBlock := genesisBody.AppendNewBlock("connection", nil)
-	genesisConnBody := genesisConnBlock.Body()
-	genesisConnBody.AppendUnstructuredTokens(host)
-	genesisConnBody.AppendNewline()
-	genesisConnBody.SetAttributeValue("type", cty.StringVal("ssh"))
-	genesisConnBody.SetAttributeValue("user", cty.StringVal("darknode"))
-	genesisConnBody.AppendUnstructuredTokens(key)
-	genesisConnBody.AppendNewline()
-
 	serviceFileBlock := instanceBody.AppendNewBlock("provisioner", []string{"file"})
 	serviceFileBody := serviceFileBlock.Body()
 	serviceFileBody.SetAttributeValue("source", cty.StringVal(aws.ServiceFile))
@@ -541,13 +520,15 @@ func (aws terraformAWS) GenerateTerraformConfig() []byte {
 	serviceConnectionBody.AppendUnstructuredTokens(key)
 	serviceConnectionBody.AppendNewline()
 
+	snapshotURL := util.SnapshotURL(aws.Network)
 	remoteExec2Block := instanceBody.AppendNewBlock("provisioner", []string{"remote-exec"})
 	remoteExec2Body := remoteExec2Block.Body()
 	remoteExec2Body.SetAttributeValue("inline", cty.ListVal([]cty.Value{
 		cty.StringVal("set -x"),
 		cty.StringVal("mkdir -p $HOME/.darknode/bin"),
 		cty.StringVal("mkdir -p $HOME/.config/systemd/user"),
-		cty.StringVal("mv $HOME/genesis.json $HOME/.darknode/genesis.json"),
+		cty.StringVal(fmt.Sprintf("cd .darknode && curl -sSOJL %v && tar xzvf latest.tar.gz", snapshotURL)),
+		cty.StringVal("rm .darknode/latest.tar.gz"),
 		cty.StringVal("mv $HOME/darknode.service $HOME/.config/systemd/user/darknode.service"),
 		cty.StringVal(fmt.Sprintf("curl -sL https://github.com/renproject/darknode-release/releases/download/%v/darknode > ~/.darknode/bin/darknode", aws.Version)),
 		cty.StringVal("chmod +x ~/.darknode/bin/darknode"),

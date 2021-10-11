@@ -67,8 +67,7 @@ func (p providerDO) Deploy(ctx *cli.Context) error {
 	}
 
 	// Fetch the remote config template
-	configURL := renvm.ConfigURL(network)
-	templateOpts, err := renvm.OptionTemplate(configURL)
+	templateOpts, err := renvm.OptionTemplate(util.OptionsURL(network))
 	if err != nil {
 		return err
 	}
@@ -324,7 +323,7 @@ func (do doTerraform) GenerateTerraformConfig() []byte {
 		cty.StringVal("wget https://github.com/CosmWasm/wasmvm/archive/v0.16.1.tar.gz"),
 		cty.StringVal("tar -xzf v0.16.1.tar.gz"),
 		cty.StringVal("cd wasmvm-0.16.1/"),
-		cty.StringVal("sudo cp ./api/libgo_cosmwasm.so /usr/lib/"),
+		cty.StringVal("sudo cp ./api/libwasmvm.so /usr/lib/"),
 		cty.StringVal("cd .."),
 		cty.StringVal("rm -r v0.10.0.tar.gz wasmvm-0.10.0"),
 	}))
