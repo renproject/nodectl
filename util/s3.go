@@ -28,6 +28,9 @@ func OptionsURL(network multichain.Network) string {
 }
 
 // SnapshotURL returns the url of the latest snapshot file on the given network.
-func SnapshotURL(network multichain.Network) string {
-	return GetFileURL(network, "latest.tar.gz")
+func SnapshotURL(network multichain.Network, name string) string {
+	if name == ""{
+		name = "latest.tar.gz"
+	}
+	return GetFileURL(network, name)
 }

@@ -520,14 +520,14 @@ func (aws terraformAWS) GenerateTerraformConfig() []byte {
 	serviceConnectionBody.AppendUnstructuredTokens(key)
 	serviceConnectionBody.AppendNewline()
 
-	snapshotURL := util.SnapshotURL(aws.Network)
+	snapshotURL := util.SnapshotURL(aws.Network, "")
 	remoteExec2Block := instanceBody.AppendNewBlock("provisioner", []string{"remote-exec"})
 	remoteExec2Body := remoteExec2Block.Body()
 	remoteExec2Body.SetAttributeValue("inline", cty.ListVal([]cty.Value{
 		cty.StringVal("set -x"),
 		cty.StringVal("mkdir -p $HOME/.darknode/bin"),
 		cty.StringVal("mkdir -p $HOME/.config/systemd/user"),
-		cty.StringVal(fmt.Sprintf("cd .darknode && curl -sSOJL %v && tar xzvf latest.tar.gz", snapshotURL)),
+		cty.StringVal(fmt.Sprintf("cd .darknode && curl -sSOJL %v && tar xzf latest.tar.gz", snapshotURL)),
 		cty.StringVal("rm latest.tar.gz"),
 		cty.StringVal("mv $HOME/darknode.service $HOME/.config/systemd/user/darknode.service"),
 		cty.StringVal(fmt.Sprintf("curl -sL https://github.com/renproject/darknode-release/releases/download/%v/darknode > ~/.darknode/bin/darknode", aws.Version)),

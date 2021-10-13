@@ -1,11 +1,13 @@
 package nodectl
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -221,7 +223,20 @@ func UpdateDarknode(ctx *cli.Context) error {
 func RecoverDarknode(ctx *cli.Context) error {
 	name := ctx.Args().First()
 	tags := ctx.String("tags")
+	force := ctx.Bool("force")
 	snapshot := ctx.String("snapshot")
+
+	// Confirmation prompt if force prompt is not present
+	if !force {
+		color.Yellow("This will clear your darknode database and reset everything to the latest snapshot")
+		color.Yellow("Are you sure you want to recover? (y/N)")
+		reader := bufio.NewReader(os.Stdin)
+		text, _ := reader.ReadString('\n')
+		input := strings.ToLower(strings.TrimSpace(text))
+		if input != "yes" && input != "y" {
+			return nil
+		}
+	}
 
 	// Validate all the input parameters
 	nodes, err := util.ParseNodesFromNameAndTags(name, tags)
@@ -237,20 +252,23 @@ func RecoverDarknode(ctx *cli.Context) error {
 		go func() {
 			defer wg.Done()
 
-			configPath := util.NodeConfigPath(node)
-			config, err := renvm.NewOptionsFromFile(configPath)
+			options, err := util.NodeOptions(node)
 			if err != nil {
 				color.Red("cannot read darknode %v config file, err = %v", node, err)
 				return
 			}
 
-			snapshotURL := fmt.Sprintf("https://s3.ap-southeast-1.amazonaws.com/darknode.renproject.io/%v-latest.tar.gz", config.Network)
-			if snapshot != "" {
-				snapshotURL = fmt.Sprintf("https://s3.ap-southeast-1.amazonaws.com/darknode.renproject.io/%v", snapshot)
+			// Stop the darknode service
+			color.Green("[%v] stop darknode", node)
+			stopService := "systemctl --user stop darknode"
+			if err := util.RemoteRun(name, stopService, "darknode"); err != nil {
+				color.Red("failed to stop darknode service, err = %v", err)
+				return
 			}
 
 			// Download the snapshot and replace the current database
-			script := fmt.Sprintf("cd .darknode && mv db db-bak && && mv genesis.json genesis-bak.json && curl -sSOJL %v && tar xzvf %v-latest.tar.gz && rm %v-latest.tar.gz", snapshotURL, config.Network, config.Network)
+			snapshotURL := util.SnapshotURL(options.Network, snapshot)
+			script := fmt.Sprintf("cd .darknode && rm -rf db chain.wal genesis.json && curl -sSOJL %v && tar xzf latest.tar.gz && rm latest.tar.gz", snapshotURL)
 			if err := util.RemoteRun(name, script, "darknode"); err != nil {
 				color.Red("failed to fetch snapshot file, err = %v", err)
 				return
@@ -259,9 +277,10 @@ func RecoverDarknode(ctx *cli.Context) error {
 			// Restart the darknode
 			restartService := "systemctl --user restart darknode"
 			if err := util.RemoteRun(name, restartService, "darknode"); err != nil {
-				color.Red("failed to fetch snapshot file, err = %v", err)
+				color.Red("failed to restart darknode service, err = %v", err)
 				return
 			}
+			color.Green("[%v] is recovered", node)
 		}()
 	}
 	wg.Wait()
