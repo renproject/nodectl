@@ -47,6 +47,10 @@ var (
 		Aliases: []string{"v"},
 		Usage:   "Show additional details of darknodes",
 	}
+	DependencyFlag = &cli.BoolFlag{
+		Name:  "dep",
+		Usage: "Update the dependency for your darknode",
+	}
 )
 
 // AWS flags

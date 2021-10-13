@@ -14,6 +14,7 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/google/go-github/v36/github"
+	"github.com/renproject/nodectl/provider"
 	"github.com/renproject/nodectl/renvm"
 	"github.com/renproject/nodectl/util"
 	"github.com/urfave/cli/v2"
@@ -183,6 +184,7 @@ func GetNodeInfo(name string) (NodeInfo, error) {
 func UpdateDarknode(ctx *cli.Context) error {
 	name := ctx.Args().First()
 	tags := ctx.String("tags")
+	dep := ctx.Bool("dep")
 	version := strings.TrimSpace(ctx.String("version"))
 	nodes, err := util.ParseNodesFromNameAndTags(name, tags)
 	if err != nil {
@@ -190,7 +192,6 @@ func UpdateDarknode(ctx *cli.Context) error {
 	}
 
 	// Use latest version if user doesn't provide a version number
-	color.Green("Verifying darknode release ...")
 	if version != "" {
 		if err := validateVersion(version); err != nil {
 			return err
@@ -198,7 +199,7 @@ func UpdateDarknode(ctx *cli.Context) error {
 	}
 
 	// Updating darknodes
-	color.Green("Updating darknodes ...")
+	color.Green("Updating darknodes...")
 	errs := make([]error, len(nodes))
 	wg := new(sync.WaitGroup)
 	for i := range nodes {
@@ -206,9 +207,9 @@ func UpdateDarknode(ctx *cli.Context) error {
 		go func(i int) {
 			defer wg.Done()
 
-			errs[i] = update(nodes[i], version)
+			errs[i] = update(nodes[i], version, dep)
 			if errs[i] == nil {
-				color.Green("darknode [%v] has been updated.", nodes[i])
+				color.Green("- ✅ [%v] has been updated.", nodes[i])
 			}
 		}(i)
 	}
@@ -267,13 +268,35 @@ func RecoverDarknode(ctx *cli.Context) error {
 	return nil
 }
 
-func update(name, ver string) error {
-	path := fmt.Sprintf("%v/config.json", util.NodePath(name))
-	options, err := renvm.NewOptionsFromFile(path)
+func update(name, ver string, dep bool) error {
+	// Update the dependency for darknode if needed
+	if dep {
+		color.Green("- Updating [%v] dependency", name)
+		p, err := util.NodeProvider(name)
+		if err != nil {
+			return err
+		}
+		var username string
+		switch p {
+		case provider.NameAws:
+			username = "ubuntu"
+		case provider.NameDo:
+			username = "root"
+		default:
+			username = "root"
+		}
+		script := `wget -q https://github.com/CosmWasm/wasmvm/archive/v0.16.1.tar.gz &&
+tar -xzf v0.16.1.tar.gz && sudo cp ./wasmvm-0.16.1/api/libwasmvm.so /usr/lib/ && rm -r v0.16.1.tar.gz wasmvm-0.16.1`
+		if err := util.RemoteRun(name, script, username); err != nil {
+			return err
+		}
+	}
+
+	// Get the node options
+	options, err := util.NodeOptions(name)
 	if err != nil {
 		return fmt.Errorf("reading config file: %v", err)
 	}
-	networkURL := util.OptionsURL(options.Network)
 
 	// Fetch the latest release if not provided
 	if ver == "" {
@@ -282,9 +305,11 @@ func update(name, ver string) error {
 			return err
 		}
 	}
+	color.Green("- Updating [%v] to version %v", name, ver)
 
 	// Fetch the latest config template and update the darknode's config
-	newOptions, err := renvm.OptionTemplate(networkURL)
+	optionsURL := util.OptionsURL(options.Network)
+	newOptions, err := renvm.OptionTemplate(optionsURL)
 	if err != nil {
 		return fmt.Errorf("fetching latest options template: %v", err)
 	}
@@ -294,6 +319,7 @@ func update(name, ver string) error {
 	if err != nil {
 		return fmt.Errorf("marshalling new options: %v", err)
 	}
+	path := filepath.Join(util.NodePath(name), "config.json")
 	if err := renvm.OptionsToFile(newOptions, path); err != nil {
 		return fmt.Errorf("update local config : %v", err)
 	}
