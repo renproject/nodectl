@@ -119,12 +119,12 @@ check_architecture() {
     elif [ "$ostype" = 'linux' -a "$cputype" = 'aarch64' ]; then
         :
     elif [ "$ostype" = 'darwin' ]; then
-        if [ "$cputype" = 'x86_64']; then
+        if [ "$cputype" = 'x86_64' ]; then
           :
-        elif [ "$cputype" = 'arm64']; then
+        elif [ "$cputype" = 'arm64' ]; then
           :
         else
-            echo 'unsupported OS type or architecture'
+            echo '11unsupported OS type or architecture'
             exit 1
         fi
 
