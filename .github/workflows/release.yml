@@ -1,6 +1,8 @@
 name: release
 on:
     push:
+        branches:
+            - feat/apple-silicon
         tags:
             - '*'
 jobs:
@@ -33,6 +35,7 @@ jobs:
               with:
                   files: |
                       ./artifacts/nodectl_darwin_amd64
+                      ./artifacts/arm64
                       ./artifacts/nodectl_linux_amd64
                       ./artifacts/nodectl_linux_arm
                       ./artifacts/install.sh
