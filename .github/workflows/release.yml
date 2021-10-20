@@ -25,6 +25,8 @@ jobs:
                   mv nodectl_linux_arm ./artifacts/
                   env GOOS=darwin CGO_ENABLED=1 CC=o64-clang CXX=o64-clang++ GOARCH=amd64 go build -o nodectl_darwin_amd64 -ldflags "-s -w -X main.BinaryVersion=${GIT_TAG_NAME}" ./cmd/nodectl
                   mv nodectl_darwin_amd64 ./artifacts/
+                  env GOOS=darwin CGO_ENABLED=1 CC=o64-clang CXX=o64-clang++ GOARCH=arm64 go build -o nodectl_darwin_arm64 -ldflags "-s -w -X main.BinaryVersion=${GIT_TAG_NAME}" ./cmd/nodectl
+                  mv nodectl_darwin_arm64 ./artifacts/
             - name: Create Release
               id: create_release
               uses: softprops/action-gh-release@v1
