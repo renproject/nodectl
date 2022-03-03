@@ -4,8 +4,8 @@ set -u
 
 main() {
     # Update this when minimum terraform version is changed.
-    min_terraform_ver="1.0.0"
-    cur_terraform_ver="1.0.5"
+    min_terraform_ver="1.0.2"
+    cur_terraform_ver="1.1.7"
 
     # Exit if `nodectl` is already installed
     if check_cmd nodectl; then
@@ -98,13 +98,15 @@ prerequisites() {
         requiredPatch="$(echo $1 | cut -d. -f3)"
 
         if [ "$major" -lt "$requiredMajor" ]; then
-          err "Please upgrade your terraform to version above 1.0.0"
-        fi
-        if [ "$minor" -lt "$requiredMinor" ]; then
-          err "Please upgrade your terraform to version above 1.0.0"
-        fi
-        if [ "$patch" -lt "$requiredPatch" ]; then
-          err "Please upgrade your terraform to version above 1.0.0"
+            echo "Please upgrade your terraform to version above $min_terraform_ver"
+        elif [ "$major" -eq "$requiredMajor" ]; then
+            if [ "$minor" -lt "$requiredMinor" ]; then
+                echo "Please upgrade your terraform to version above $min_terraform_ver"
+            elif [ "$minor" -eq "$requiredMinor" ]; then
+                if [ "$patch" -lt "$requiredPatch" ]; then
+                    echo "Please upgrade your terraform to version above $min_terraform_ver"
+                fi
+            fi
         fi
     fi
 }
@@ -124,7 +126,7 @@ check_architecture() {
         elif [ "$cputype" = 'arm64' ]; then
           :
         else
-            echo '11unsupported OS type or architecture'
+            echo 'unsupported OS type or architecture'
             exit 1
         fi
 
@@ -140,6 +142,9 @@ check_architecture() {
                 ;;
             11.*)
                 # We assume Big Sur will be OK for now
+                ;;
+            12.*)
+                # We assume Monterey will be OK for now
                 ;;
             *)
                 # Unknown product version, warn and continue
@@ -205,14 +210,12 @@ ensure() {
 downloader() {
     if check_cmd curl; then
         if ! check_help_for curl --proto --tlsv1.2; then
-            echo "Warning: Not forcing TLS v1.2, this is potentially less secure"
             curl --silent --show-error --fail --location "$1" --output "$2"
         else
             curl --proto '=https' --tlsv1.2 --silent --show-error --fail --location "$1" --output "$2"
         fi
     elif check_cmd wget; then
         if ! check_help_for wget --https-only --secure-protocol; then
-            echo "Warning: Not forcing TLS v1.2, this is potentially less secure"
             wget "$1" -O "$2"
         else
             wget --https-only --secure-protocol=TLSv1_2 "$1" -O "$2"
