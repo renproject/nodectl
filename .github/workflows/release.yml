@@ -43,6 +43,6 @@ jobs:
                       ./artifacts/update.sh
             - name: Verify the installation process
               run: |
-                  curl https://www.github.com/renproject/darknode/releases/latest/download/install.sh -sSfL | sh
+                  curl https://www.github.com/renproject/nodectl/releases/latest/download/install.sh -sSfL | sh
                   export PATH=$PATH:$HOME/.nodectl/bin
                   nodectl --version
