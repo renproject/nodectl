@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/renproject/multichain"
 	"github.com/renproject/nodectl/renvm"
 	"github.com/renproject/nodectl/util"
@@ -161,4 +163,16 @@ func applyTerraform(name string) error {
 	}
 	apply := fmt.Sprintf("cd %v && terraform apply -auto-approve -no-color", util.NodePath(name))
 	return util.Run("bash", "-c", apply)
+}
+
+func fileVersionID(service *s3.S3, key string) (string, error) {
+	input := &s3.GetObjectInput{
+		Bucket: aws.String("darknode.renproject.io"),
+		Key:    aws.String(key),
+	}
+	obj, err := service.GetObject(input)
+	if err != nil {
+		return "", err
+	}
+	return *obj.VersionId, nil
 }

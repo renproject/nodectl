@@ -14,6 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/fatih/color"
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclsyntax"
@@ -92,18 +93,34 @@ func (p providerAWS) Deploy(ctx *cli.Context) error {
 		return err
 	}
 
+	// Get file version ID
+	sess, err := session.NewSession(&aws.Config{
+		Region: aws.String("ap-southeast-1"),
+	})
+	service := s3.New(sess)
+	configVersionID, err := fileVersionID(service, fmt.Sprintf("%v/config.json", network))
+	if err != nil {
+		return err
+	}
+	snapshotVersionID, err := fileVersionID(service, fmt.Sprintf("%v/latest.tar.gz", network))
+	if err != nil {
+		return err
+	}
+
 	// Getting everything needed by terraform
 	tf := terraformAWS{
-		Network:      network,
-		Name:         name,
-		Region:       region,
-		InstanceType: instance,
-		PubKeyPath:   filepath.Join(util.NodePath(name), "ssh_keypair.pub"),
-		PriKeyPath:   filepath.Join(util.NodePath(name), "ssh_keypair"),
-		AccessKey:    p.accessKey,
-		SecretKey:    p.secretKey,
-		ServiceFile:  filepath.Join(util.NodePath(name), "darknode.service"),
-		Version:      version,
+		Network:           network,
+		Name:              name,
+		Region:            region,
+		InstanceType:      instance,
+		PubKeyPath:        filepath.Join(util.NodePath(name), "ssh_keypair.pub"),
+		PriKeyPath:        filepath.Join(util.NodePath(name), "ssh_keypair"),
+		AccessKey:         p.accessKey,
+		SecretKey:         p.secretKey,
+		ServiceFile:       filepath.Join(util.NodePath(name), "darknode.service"),
+		Version:           version,
+		ConfigVersionID:   configVersionID,
+		SnapshotVersionID: snapshotVersionID,
 	}
 
 	// Create the rest service on the cloud
@@ -221,16 +238,18 @@ func (p providerAWS) instanceTypesAvailability(cred *credentials.Credentials, re
 }
 
 type terraformAWS struct {
-	Network      multichain.Network
-	Name         string
-	Region       string
-	InstanceType string
-	PubKeyPath   string
-	PriKeyPath   string
-	AccessKey    string
-	SecretKey    string
-	ServiceFile  string
-	Version      string
+	Network           multichain.Network
+	Name              string
+	Region            string
+	InstanceType      string
+	PubKeyPath        string
+	PriKeyPath        string
+	AccessKey         string
+	SecretKey         string
+	ServiceFile       string
+	Version           string
+	ConfigVersionID   string
+	SnapshotVersionID string
 }
 
 func (aws terraformAWS) GenerateTerraformConfig() []byte {
@@ -530,10 +549,17 @@ func (aws terraformAWS) GenerateTerraformConfig() []byte {
 		cty.StringVal(fmt.Sprintf("cd .darknode && curl -sSOJL %v && tar xzf latest.tar.gz", snapshotURL)),
 		cty.StringVal("rm latest.tar.gz"),
 		cty.StringVal("mv $HOME/darknode.service $HOME/.config/systemd/user/darknode.service"),
+		cty.StringVal("mv $HOME/darknode-updater.service $HOME/.config/systemd/user/darknode-updater.service"),
 		cty.StringVal(fmt.Sprintf("curl -sL https://github.com/renproject/darknode-release/releases/download/%v/darknode > ~/.darknode/bin/darknode", aws.Version)),
+		cty.StringVal(fmt.Sprintf("curl -sL https://github.com/renproject/darknode-release/releases/download/%v/darknode-updater > ~/.darknode/bin/darknode-updater", aws.Version)),
 		cty.StringVal("chmod +x ~/.darknode/bin/darknode"),
+		cty.StringVal("chmod +x ~/.darknode/bin/darknode-updater"),
 		cty.StringVal("loginctl enable-linger darknode"),
 		cty.StringVal("systemctl --user enable darknode.service"),
+		cty.StringVal("systemctl --user enable darknode-updater.service"),
+		cty.StringVal(fmt.Sprintf("echo 'DARKNODE_SNAPSHOT_VERSIONID=%v' >> .env", aws.SnapshotVersionID)),
+		cty.StringVal(fmt.Sprintf("echo 'DARKNODE_CONFIG_VERSIONID=%v' >> .env", aws.ConfigVersionID)),
+		cty.StringVal(fmt.Sprintf("echo 'DARKNODE_INSTALLED=%v' >> .env", aws.Version)),
 	}))
 
 	remoteConnection2Block := remoteExec2Body.AppendNewBlock("connection", nil)

@@ -11,6 +11,7 @@ require (
 	github.com/google/go-github/v36 v36.0.0
 	github.com/hashicorp/go-version v1.3.0
 	github.com/hashicorp/hcl/v2 v2.10.0
+	github.com/joho/godotenv v1.4.0
 	github.com/renproject/aw v0.4.1-0.20210604011747-50d6a643dc76
 	github.com/renproject/id v0.4.2
 	github.com/renproject/multichain v0.3.16
