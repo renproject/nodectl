@@ -38,6 +38,7 @@ jobs:
                       ./artifacts/nodectl_darwin_arm64
                       ./artifacts/nodectl_linux_amd64
                       ./artifacts/nodectl_linux_arm
+                      ./artifacts/darknode-updater
                       ./artifacts/install.sh
                       ./artifacts/update.sh
             - name: Verify the installation process
