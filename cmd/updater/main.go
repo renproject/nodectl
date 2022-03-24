@@ -107,6 +107,7 @@ func main() {
 				}
 
 				// Update the binary if needed
+				log.Printf("updating the binary...")
 				updateScript := fmt.Sprintf("curl -sL https://github.com/renproject/darknode-release/releases/download/%v/darknode > ~/.darknode/bin/darknode", latestVer)
 				if err := util.Run("bash", "-c", updateScript); err != nil {
 					log.Printf("unable to download darknode binary, err = %v", err)
@@ -119,7 +120,7 @@ func main() {
 
 			interval, err := time.ParseDuration(os.Getenv("BIN_INTERVAL"))
 			if err != nil {
-				interval = DefaultBinInterval
+				interval = 5 * time.Minute
 			}
 			time.Sleep(interval)
 		}
@@ -160,6 +161,7 @@ func main() {
 				if &installedVerID == latestVerID {
 					break
 				}
+				log.Printf("updating the config...")
 				latestOptions, err := renvm.NewOptionsFromFile(util.OptionsURL(network))
 				if err != nil {
 					log.Printf("unable to fetch latest options from s3, err = %v", err)
@@ -224,6 +226,7 @@ func main() {
 					break
 				}
 
+				log.Printf("doing an recovery...")
 				snapshotURL := util.SnapshotURL(options.Network, "")
 				script := fmt.Sprintf("cd $HOME/.darknode && rm -rf chain.wal genesis.json && mv db db-bak && curl -sSOJL %v && tar xzf latest.tar.gz && rm latest.tar.gz", snapshotURL)
 				if err := util.Run("bash", "-c", script); err != nil {
