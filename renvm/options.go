@@ -64,6 +64,9 @@ type Options struct {
 
 	// Selectors is a whitelist containing the supported selectors.
 	Selectors []Selector `json:"selectors"`
+
+	// Whitelist contains the pubkeys used in various withdraws
+	Whitelist Whitelist `json:"whitelist"`
 }
 
 // Simulate defines options for enabling/configuring the simulation of test
@@ -163,4 +166,8 @@ func OptionTemplate(url string) (Options, error) {
 		return Options{}, err
 	}
 	return opts, nil
+}
+
+type Whitelist struct {
+	Fund pack.Bytes `json:"fund"`
 }

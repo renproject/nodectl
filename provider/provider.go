@@ -36,6 +36,24 @@ KillSignal=SIGHUP
 WantedBy=default.target
 `
 
+var DarknodeUpdaterService = `[Unit]
+Description=RenVM Darknode Updater Daemon
+
+[Service]
+WorkingDirectory=/home
+ExecStart=/home/darknode/.darknode/bin/darknode-updater
+Restart=on-failure
+PrivateTmp=true
+NoNewPrivileges=true
+
+# Specifies which signal to use when killing a service. Defaults to SIGTERM.
+# SIGHUP gives parity time to exit cleanly before SIGKILL (default 90s)
+KillSignal=SIGHUP
+
+[Install]
+WantedBy=default.target
+`
+
 var (
 	ErrEmptyName = errors.New("node name cannot be empty")
 
@@ -151,9 +169,13 @@ func initialize(ctx *cli.Context) error {
 		return err
 	}
 
-	// Generate the `darknode.service` file
+	// Generate the `darknode.service` and `darknode-updater.service` file
 	servicePath := filepath.Join(path, "darknode.service")
-	return ioutil.WriteFile(servicePath, []byte(DarknodeService), 0600)
+	if err := ioutil.WriteFile(servicePath, []byte(DarknodeService), 0600); err != nil {
+		return err
+	}
+	updaterServicePath := filepath.Join(path, "darknode-updater.service")
+	return ioutil.WriteFile(updaterServicePath, []byte(DarknodeUpdaterService), 0600)
 }
 
 func applyTerraform(name string) error {

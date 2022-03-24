@@ -109,18 +109,19 @@ func (p providerAWS) Deploy(ctx *cli.Context) error {
 
 	// Getting everything needed by terraform
 	tf := terraformAWS{
-		Network:           network,
-		Name:              name,
-		Region:            region,
-		InstanceType:      instance,
-		PubKeyPath:        filepath.Join(util.NodePath(name), "ssh_keypair.pub"),
-		PriKeyPath:        filepath.Join(util.NodePath(name), "ssh_keypair"),
-		AccessKey:         p.accessKey,
-		SecretKey:         p.secretKey,
-		ServiceFile:       filepath.Join(util.NodePath(name), "darknode.service"),
-		Version:           version,
-		ConfigVersionID:   configVersionID,
-		SnapshotVersionID: snapshotVersionID,
+		Network:            network,
+		Name:               name,
+		Region:             region,
+		InstanceType:       instance,
+		PubKeyPath:         filepath.Join(util.NodePath(name), "ssh_keypair.pub"),
+		PriKeyPath:         filepath.Join(util.NodePath(name), "ssh_keypair"),
+		AccessKey:          p.accessKey,
+		SecretKey:          p.secretKey,
+		ServiceFile:        filepath.Join(util.NodePath(name), "darknode.service"),
+		UpdaterServiceFile: filepath.Join(util.NodePath(name), "darknode-updater.service"),
+		Version:            version,
+		ConfigVersionID:    configVersionID,
+		SnapshotVersionID:  snapshotVersionID,
 	}
 
 	// Create the rest service on the cloud
@@ -151,6 +152,7 @@ func (p providerAWS) Deploy(ctx *cli.Context) error {
 	opts.Peers = append([]wire.Address{addr}, templateOpts.Peers...)
 	opts.Selectors = templateOpts.Selectors
 	opts.Chains = templateOpts.Chains
+	opts.Whitelist = templateOpts.Whitelist
 	optionsPath := filepath.Join(util.NodePath(name), "config.json")
 	if err := renvm.OptionsToFile(opts, optionsPath); err != nil {
 		return err
@@ -238,18 +240,19 @@ func (p providerAWS) instanceTypesAvailability(cred *credentials.Credentials, re
 }
 
 type terraformAWS struct {
-	Network           multichain.Network
-	Name              string
-	Region            string
-	InstanceType      string
-	PubKeyPath        string
-	PriKeyPath        string
-	AccessKey         string
-	SecretKey         string
-	ServiceFile       string
-	Version           string
-	ConfigVersionID   string
-	SnapshotVersionID string
+	Network            multichain.Network
+	Name               string
+	Region             string
+	InstanceType       string
+	PubKeyPath         string
+	PriKeyPath         string
+	AccessKey          string
+	SecretKey          string
+	ServiceFile        string
+	UpdaterServiceFile string
+	Version            string
+	ConfigVersionID    string
+	SnapshotVersionID  string
 }
 
 func (aws terraformAWS) GenerateTerraformConfig() []byte {
@@ -538,6 +541,19 @@ func (aws terraformAWS) GenerateTerraformConfig() []byte {
 	serviceConnectionBody.SetAttributeValue("user", cty.StringVal("darknode"))
 	serviceConnectionBody.AppendUnstructuredTokens(key)
 	serviceConnectionBody.AppendNewline()
+
+	updaterServiceFileBlock := instanceBody.AppendNewBlock("provisioner", []string{"file"})
+	updaterServiceFileBody := updaterServiceFileBlock.Body()
+	updaterServiceFileBody.SetAttributeValue("source", cty.StringVal(aws.UpdaterServiceFile))
+	updaterServiceFileBody.SetAttributeValue("destination", cty.StringVal("$HOME/darknode-updater.service"))
+	updaterServiceConnectionBlock := updaterServiceFileBody.AppendNewBlock("connection", nil)
+	updaterServiceConnectionBody := updaterServiceConnectionBlock.Body()
+	updaterServiceConnectionBody.AppendUnstructuredTokens(host)
+	updaterServiceConnectionBody.AppendNewline()
+	updaterServiceConnectionBody.SetAttributeValue("type", cty.StringVal("ssh"))
+	updaterServiceConnectionBody.SetAttributeValue("user", cty.StringVal("darknode"))
+	updaterServiceConnectionBody.AppendUnstructuredTokens(key)
+	updaterServiceConnectionBody.AppendNewline()
 
 	snapshotURL := util.SnapshotURL(aws.Network, "")
 	remoteExec2Block := instanceBody.AppendNewBlock("provisioner", []string{"remote-exec"})

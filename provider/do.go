@@ -118,6 +118,7 @@ func (p providerDO) Deploy(ctx *cli.Context) error {
 	opts.Peers = append([]wire.Address{addr}, templateOpts.Peers...)
 	opts.Selectors = templateOpts.Selectors
 	opts.Chains = templateOpts.Chains
+	opts.Whitelist = templateOpts.Whitelist
 	optionsPath := filepath.Join(util.NodePath(name), "config.json")
 	if err := renvm.OptionsToFile(opts, optionsPath); err != nil {
 		return err
