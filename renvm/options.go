@@ -102,8 +102,9 @@ type ChainOptions struct {
 }
 
 type Fees struct {
-	MintFee pack.U64 `json:"mintFee"`
-	BurnFee pack.U64 `json:"burnFee"`
+	MintFee        pack.U64 `json:"mintFee"`
+	BurnFee        pack.U64 `json:"burnFee"`
+	BurnAndMintFee pack.U64 `json:"burnAndMintFee"`
 }
 
 // NewOptions creates a new Options using the default values.
