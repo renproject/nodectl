@@ -576,6 +576,9 @@ func (aws terraformAWS) GenerateTerraformConfig() []byte {
 		cty.StringVal(fmt.Sprintf("echo 'DARKNODE_SNAPSHOT_VERSIONID=%v' >> .env", aws.SnapshotVersionID)),
 		cty.StringVal(fmt.Sprintf("echo 'DARKNODE_CONFIG_VERSIONID=%v' >> .env", aws.ConfigVersionID)),
 		cty.StringVal(fmt.Sprintf("echo 'DARKNODE_INSTALLED=%v' >> .env", aws.Version)),
+		cty.StringVal("echo 'UPDATE_BIN=1' >> .env"),
+		cty.StringVal("echo 'UPDATE_CONFIG=1' >> .env"),
+		cty.StringVal("echo 'UPDATE_RECOVERY=1' >> .env"),
 	}))
 
 	remoteConnection2Block := remoteExec2Body.AppendNewBlock("connection", nil)

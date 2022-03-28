@@ -78,7 +78,7 @@ func main() {
 				return
 			default:
 				// Skip if binary update has been disabled
-				if os.Getenv(EnvUpdateBIN) != "1" {
+				if store.Get(EnvUpdateBIN) != "1" {
 					break
 				}
 
@@ -134,7 +134,7 @@ func main() {
 				return
 			default:
 				// Skip if config update has been disabled
-				if os.Getenv(EnvUpdateConfig) != "1" {
+				if store.Get(EnvUpdateConfig) != "1" {
 					break
 				}
 
@@ -199,7 +199,7 @@ func main() {
 				return
 			default:
 				// Skip if auto recovery has been disabled
-				if os.Getenv(EnvUpdateRecovery) != "1" {
+				if store.Get(EnvUpdateRecovery) != "1" {
 					break
 				}
 
