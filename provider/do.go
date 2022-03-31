@@ -336,6 +336,7 @@ func (do doTerraform) GenerateTerraformConfig() []byte {
 		cty.StringVal("sudo cp ./api/libwasmvm.so /usr/lib/"),
 		cty.StringVal("cd .."),
 		cty.StringVal("rm -r v0.16.1.tar.gz wasmvm-0.16.1"),
+		cty.StringVal("systemctl restart systemd-journald"),
 	}))
 
 	connectionBlock := remoteExecBody.AppendNewBlock("connection", nil)
@@ -435,8 +436,9 @@ func (do doTerraform) GenerateTerraformConfig() []byte {
 		cty.StringVal("mv $HOME/darknode.service $HOME/.config/systemd/user/darknode.service"),
 		cty.StringVal("mv $HOME/darknode-updater.service $HOME/.config/systemd/user/darknode-updater.service"),
 		cty.StringVal(fmt.Sprintf("curl -sL https://github.com/renproject/darknode-release/releases/download/%v/darknode > ~/.darknode/bin/darknode", do.Version)),
-		cty.StringVal(fmt.Sprintf("curl -sL https://github.com/renproject/nodectl/releases/download/%v/darknode-updater > ~/.darknode/bin/darknode-updater", do.Version)),
+		cty.StringVal("curl -sL https://github.com/renproject/nodectl/releases/latest/download/darknode-updater > ~/.darknode/bin/darknode-updater"),
 		cty.StringVal("chmod +x ~/.darknode/bin/darknode"),
+		cty.StringVal("chmod +x ~/.darknode/bin/darknode-updater"),
 		cty.StringVal("loginctl enable-linger darknode"),
 		cty.StringVal("systemctl --user enable darknode.service"),
 		cty.StringVal("systemctl --user enable darknode-updater.service"),
