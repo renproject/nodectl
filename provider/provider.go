@@ -4,12 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/renproject/multichain"
 	"github.com/renproject/nodectl/renvm"
 	"github.com/renproject/nodectl/util"
@@ -22,7 +21,7 @@ var DarknodeService = `[Unit]
 Description=RenVM Darknode Daemon
 
 [Service]
-WorkingDirectory=/home
+WorkingDirectory=/home/darknode
 ExecStart=/home/darknode/.darknode/bin/darknode --config /home/darknode/.darknode/config.json
 Restart=on-failure
 PrivateTmp=true
@@ -40,7 +39,7 @@ var DarknodeUpdaterService = `[Unit]
 Description=RenVM Darknode Updater Daemon
 
 [Service]
-WorkingDirectory=/home
+WorkingDirectory=/home/darknode
 ExecStart=/home/darknode/.darknode/bin/darknode-updater
 Restart=on-failure
 PrivateTmp=true
@@ -187,14 +186,11 @@ func applyTerraform(name string) error {
 	return util.Run("bash", "-c", apply)
 }
 
-func fileVersionID(service *s3.S3, key string) (string, error) {
-	input := &s3.GetObjectInput{
-		Bucket: aws.String("darknode.renproject.io"),
-		Key:    aws.String(key),
-	}
-	obj, err := service.GetObject(input)
+func fileVersionID(key string) (string, error) {
+	response, err := http.Head(fmt.Sprintf("https://s3.ap-southeast-1.amazonaws.com/darknode.renproject.io/%v", key))
 	if err != nil {
 		return "", err
 	}
-	return *obj.VersionId, nil
+	defer response.Body.Close()
+	return response.Header.Get("x-amz-version-id"), nil
 }

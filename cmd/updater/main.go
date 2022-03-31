@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -12,9 +13,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/fatih/color"
 	"github.com/hashicorp/go-version"
 	"github.com/joho/godotenv"
@@ -59,17 +57,6 @@ func main() {
 	}
 	self := options.Peers[0]
 	network := options.Network
-	log.Printf("network = %v", network)
-
-	// Initialise the s3 service
-	sess, err := session.NewSession(&aws.Config{
-		Region: aws.String("ap-southeast-1"),
-	})
-	if err != nil {
-		log.Printf("unable to initialise the s3 service, err = %v", err)
-		return
-	}
-	service := s3.New(sess)
 
 	// Check and update darknode binary periodically
 	go func() {
@@ -80,7 +67,6 @@ func main() {
 			default:
 				// Skip if binary update has been disabled
 				if store.Get(EnvUpdateBIN) != "1" {
-					log.Printf("skip binanry update since disabled")
 					break
 				}
 
@@ -99,7 +85,6 @@ func main() {
 				}
 
 				// Compare two versions
-				log.Printf("latestes version = %v, installed = %v", latestVer, installedVer)
 				res, err := VersionCompare(latestVer, installedVer)
 				if err != nil {
 					log.Printf("invalid version number, err = %v", err)
@@ -110,7 +95,8 @@ func main() {
 				}
 
 				// Update the binary if needed
-				log.Printf("updating the binary...")
+				log.Printf("[binary] Detect new release %v, current install = %v", latestVer, installedVer)
+				log.Printf("[binary] Updating the binary...")
 				updateScript := fmt.Sprintf("curl -sL https://github.com/renproject/darknode-release/releases/download/%v/darknode > darknode && chmod +x darknode && mv darknode ~/.darknode/bin/darknode", latestVer)
 				if err := util.Run("bash", "-c", updateScript); err != nil {
 					log.Printf("unable to download darknode binary, err = %v", err)
@@ -123,6 +109,8 @@ func main() {
 
 				// Restart the service
 				RestartDarknodeService()
+
+				log.Printf("[binary] ✅ Binary has been successfully updated to %v", latestVer)
 			}
 
 			interval, err := time.ParseDuration(os.Getenv("BIN_INTERVAL"))
@@ -154,20 +142,15 @@ func main() {
 				}
 
 				// Fetch the latest config version
-				input := &s3.GetObjectInput{
-					Bucket: aws.String("darknode.renproject.io"),
-					Key:    aws.String(fmt.Sprintf("%v/config.json", network)),
-				}
-				obj, err := service.GetObject(input)
+				latestVerID, err := fileVersionID(fmt.Sprintf("%v/config.json", network))
 				if err != nil {
 					log.Printf("unable to get config object from s3, err = %v", err)
 					break
 				}
-				latestVerID := obj.VersionId
 
 				log.Printf("latest config version = %v, instaleld config version = %v", latestVerID, installedVerID)
 				// Update the config if needed
-				if &installedVerID == latestVerID {
+				if installedVerID == latestVerID {
 					break
 				}
 
@@ -222,7 +205,7 @@ func main() {
 			default:
 				// Skip if auto recovery has been disabled
 				if store.Get(EnvUpdateRecovery) != "1" {
-					log.Printf("skip config update since disabled")
+					log.Printf("skip snapshot update since disabled")
 					break
 				}
 
@@ -234,19 +217,14 @@ func main() {
 				}
 
 				// Fetch the latest snapshot version
-				input := &s3.GetObjectInput{
-					Bucket: aws.String("darknode.renproject.io"),
-					Key:    aws.String(fmt.Sprintf("%v/latest.tar.gz", network)),
-				}
-				obj, err := service.GetObject(input)
+				latestVerID, err := fileVersionID(fmt.Sprintf("%v/latest.tar.gz", network))
 				if err != nil {
 					log.Printf("unable to get snapshot object from s3, err = %v", err)
 					break
 				}
-				latestVerID := obj.VersionId
 
 				log.Printf("latest config version = %v, instaleld config version = %v", latestVerID, installedVerID)
-				if *latestVerID == installedVerID {
+				if latestVerID == installedVerID {
 					break
 				}
 
@@ -329,4 +307,13 @@ func RestartDarknodeService() {
 	if err := util.Run("bash", "-c", script); err != nil {
 		log.Printf("unable to restart darknode service, err = %v", err)
 	}
+}
+
+func fileVersionID(key string) (string, error) {
+	response, err := http.Head(fmt.Sprintf("https://s3.ap-southeast-1.amazonaws.com/darknode.renproject.io/%v", key))
+	if err != nil {
+		return "", err
+	}
+	defer response.Body.Close()
+	return response.Header.Get("x-amz-version-id"), nil
 }

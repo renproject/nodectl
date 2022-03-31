@@ -14,7 +14,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/fatih/color"
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclsyntax"
@@ -94,15 +93,11 @@ func (p providerAWS) Deploy(ctx *cli.Context) error {
 	}
 
 	// Get file version ID
-	sess, err := session.NewSession(&aws.Config{
-		Region: aws.String("ap-southeast-1"),
-	})
-	service := s3.New(sess)
-	configVersionID, err := fileVersionID(service, fmt.Sprintf("%v/config.json", network))
+	configVersionID, err := fileVersionID(fmt.Sprintf("%v/config.json", network))
 	if err != nil {
 		return err
 	}
-	snapshotVersionID, err := fileVersionID(service, fmt.Sprintf("%v/latest.tar.gz", network))
+	snapshotVersionID, err := fileVersionID(fmt.Sprintf("%v/latest.tar.gz", network))
 	if err != nil {
 		return err
 	}
