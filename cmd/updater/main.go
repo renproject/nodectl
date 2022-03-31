@@ -154,7 +154,7 @@ func main() {
 					break
 				}
 
-				latestOptions, err := renvm.NewOptionsFromFile(util.OptionsURL(network))
+				latestOptions, err := renvm.OptionTemplate(util.OptionsURL(network))
 				if err != nil {
 					log.Printf("unable to fetch latest options from s3, err = %v", err)
 					break
@@ -175,6 +175,7 @@ func main() {
 				log.Printf("updating the config...")
 				options.Chains = latestOptions.Chains
 				options.Selectors = latestOptions.Selectors
+				options.Peers = latestOptions.Peers
 				data, err := json.MarshalIndent(options, "", "    ")
 				if err != nil {
 					break
