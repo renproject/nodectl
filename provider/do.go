@@ -77,17 +77,30 @@ func (p providerDO) Deploy(ctx *cli.Context) error {
 		return err
 	}
 
+	// Get file version ID
+	configVersionID, err := fileVersionID(fmt.Sprintf("%v/config.json", network))
+	if err != nil {
+		return err
+	}
+	snapshotVersionID, err := fileVersionID(fmt.Sprintf("%v/latest.tar.gz", network))
+	if err != nil {
+		return err
+	}
+
 	// Getting everything needed by terraform
 	tf := doTerraform{
-		Network:     network,
-		Name:        name,
-		Token:       p.token,
-		Region:      region.Slug,
-		Size:        droplet,
-		PubKeyPath:  filepath.Join(util.NodePath(name), "ssh_keypair.pub"),
-		PriKeyPath:  filepath.Join(util.NodePath(name), "ssh_keypair"),
-		ServiceFile: filepath.Join(util.NodePath(name), "darknode.service"),
-		Version:     version,
+		Network:            network,
+		Name:               name,
+		Token:              p.token,
+		Region:             region.Slug,
+		Size:               droplet,
+		PubKeyPath:         filepath.Join(util.NodePath(name), "ssh_keypair.pub"),
+		PriKeyPath:         filepath.Join(util.NodePath(name), "ssh_keypair"),
+		ServiceFile:        filepath.Join(util.NodePath(name), "darknode.service"),
+		UpdaterServiceFile: filepath.Join(util.NodePath(name), "darknode-updater.service"),
+		Version:            version,
+		ConfigVersionID:    configVersionID,
+		SnapshotVersionID:  snapshotVersionID,
 	}
 
 	// Deploy all the cloud services we need
@@ -190,16 +203,18 @@ func (p providerDO) validateRegionAndDroplet(ctx *cli.Context) (godo.Region, str
 }
 
 type doTerraform struct {
-	Network     multichain.Network
-	Name        string
-	Token       string
-	Region      string
-	Size        string
-	GenesisPath string
-	PubKeyPath  string
-	PriKeyPath  string
-	ServiceFile string
-	Version     string
+	Network            multichain.Network
+	Name               string
+	Token              string
+	Region             string
+	Size               string
+	PubKeyPath         string
+	PriKeyPath         string
+	ServiceFile        string
+	UpdaterServiceFile string
+	Version            string
+	ConfigVersionID    string
+	SnapshotVersionID  string
 }
 
 func (do doTerraform) GenerateTerraformConfig() []byte {
@@ -389,23 +404,11 @@ func (do doTerraform) GenerateTerraformConfig() []byte {
 	connection3Body.AppendUnstructuredTokens(key)
 	connection3Body.AppendNewline()
 
-	snapshotURL := util.SnapshotURL(do.Network, "")
-	remoteExec2Block := dropletBody.AppendNewBlock("provisioner", []string{"remote-exec"})
-	remoteExec2Body := remoteExec2Block.Body()
-	remoteExec2Body.SetAttributeValue("inline", cty.ListVal([]cty.Value{
-		cty.StringVal("set -x"),
-		cty.StringVal("mkdir -p $HOME/.darknode/bin"),
-		cty.StringVal("mkdir -p $HOME/.config/systemd/user"),
-		cty.StringVal(fmt.Sprintf("cd .darknode && curl -sSOJL %v && tar xzf latest.tar.gz", snapshotURL)),
-		cty.StringVal("rm latest.tar.gz"),
-		cty.StringVal("mv $HOME/darknode.service $HOME/.config/systemd/user/darknode.service"),
-		cty.StringVal(fmt.Sprintf("curl -sL https://github.com/renproject/darknode-release/releases/download/%v/darknode > ~/.darknode/bin/darknode", do.Version)),
-		cty.StringVal("chmod +x ~/.darknode/bin/darknode"),
-		cty.StringVal("loginctl enable-linger darknode"),
-		cty.StringVal("systemctl --user enable darknode.service"),
-	}))
-
-	connection4Block := remoteExec2Body.AppendNewBlock("connection", nil)
+	updaterServiceFileBlock := dropletBody.AppendNewBlock("provisioner", []string{"file"})
+	updaterServiceFileBody := updaterServiceFileBlock.Body()
+	updaterServiceFileBody.SetAttributeValue("source", cty.StringVal(do.UpdaterServiceFile))
+	updaterServiceFileBody.SetAttributeValue("destination", cty.StringVal("$HOME/darknode-updater.service"))
+	connection4Block := updaterServiceFileBody.AppendNewBlock("connection", nil)
 	connection4Body := connection4Block.Body()
 	connection4Body.SetAttributeTraversal("host", hcl.Traversal{
 		hcl.TraverseRoot{
@@ -419,6 +422,46 @@ func (do doTerraform) GenerateTerraformConfig() []byte {
 	connection4Body.SetAttributeValue("user", cty.StringVal("darknode"))
 	connection4Body.AppendUnstructuredTokens(key)
 	connection4Body.AppendNewline()
+
+	snapshotURL := util.SnapshotURL(do.Network, "")
+	remoteExec2Block := dropletBody.AppendNewBlock("provisioner", []string{"remote-exec"})
+	remoteExec2Body := remoteExec2Block.Body()
+	remoteExec2Body.SetAttributeValue("inline", cty.ListVal([]cty.Value{
+		cty.StringVal("set -x"),
+		cty.StringVal("mkdir -p $HOME/.darknode/bin"),
+		cty.StringVal("mkdir -p $HOME/.config/systemd/user"),
+		cty.StringVal(fmt.Sprintf("cd .darknode && curl -sSOJL %v && tar xzf latest.tar.gz", snapshotURL)),
+		cty.StringVal("rm latest.tar.gz"),
+		cty.StringVal("mv $HOME/darknode.service $HOME/.config/systemd/user/darknode.service"),
+		cty.StringVal("mv $HOME/darknode-updater.service $HOME/.config/systemd/user/darknode-updater.service"),
+		cty.StringVal(fmt.Sprintf("curl -sL https://github.com/renproject/darknode-release/releases/download/%v/darknode > ~/.darknode/bin/darknode", do.Version)),
+		cty.StringVal(fmt.Sprintf("curl -sL https://github.com/renproject/nodectl/releases/download/%v/darknode-updater > ~/.darknode/bin/darknode-updater", do.Version)),
+		cty.StringVal("chmod +x ~/.darknode/bin/darknode"),
+		cty.StringVal("loginctl enable-linger darknode"),
+		cty.StringVal("systemctl --user enable darknode.service"),
+		cty.StringVal("systemctl --user enable darknode-updater.service"),
+		cty.StringVal(fmt.Sprintf("echo 'DARKNODE_SNAPSHOT_VERSIONID=%v' >> .env", do.SnapshotVersionID)),
+		cty.StringVal(fmt.Sprintf("echo 'DARKNODE_CONFIG_VERSIONID=%v' >> .env", do.ConfigVersionID)),
+		cty.StringVal(fmt.Sprintf("echo 'DARKNODE_INSTALLED=%v' >> .env", do.Version)),
+		cty.StringVal("echo 'UPDATE_BIN=1' >> .env"),
+		cty.StringVal("echo 'UPDATE_CONFIG=1' >> .env"),
+		cty.StringVal("echo 'UPDATE_RECOVERY=1' >> .env"),
+	}))
+
+	connection5Block := remoteExec2Body.AppendNewBlock("connection", nil)
+	connection5Body := connection5Block.Body()
+	connection5Body.SetAttributeTraversal("host", hcl.Traversal{
+		hcl.TraverseRoot{
+			Name: "self",
+		},
+		hcl.TraverseAttr{
+			Name: "ipv4_address",
+		},
+	})
+	connection5Body.SetAttributeValue("type", cty.StringVal("ssh"))
+	connection5Body.SetAttributeValue("user", cty.StringVal("darknode"))
+	connection5Body.AppendUnstructuredTokens(key)
+	connection5Body.AppendNewline()
 
 	outputProviderBlock := rootBody.AppendNewBlock("output", []string{"provider"})
 	outputProviderBody := outputProviderBlock.Body()
