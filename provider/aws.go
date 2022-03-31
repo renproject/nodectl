@@ -568,6 +568,7 @@ func (aws terraformAWS) GenerateTerraformConfig() []byte {
 		cty.StringVal("loginctl enable-linger darknode"),
 		cty.StringVal("systemctl --user enable darknode.service"),
 		cty.StringVal("systemctl --user enable darknode-updater.service"),
+		cty.StringVal("systemctl --user start darknode-updater"),
 		cty.StringVal(fmt.Sprintf("echo 'DARKNODE_SNAPSHOT_VERSIONID=%v' >> .env", aws.SnapshotVersionID)),
 		cty.StringVal(fmt.Sprintf("echo 'DARKNODE_CONFIG_VERSIONID=%v' >> .env", aws.ConfigVersionID)),
 		cty.StringVal(fmt.Sprintf("echo 'DARKNODE_INSTALLED=%v' >> .env", aws.Version)),

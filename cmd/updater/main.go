@@ -48,6 +48,7 @@ func main() {
 	defer cancel()
 
 	// Get the network of the darknode
+	time.Sleep(time.Minute)
 	store := NewEnvStore()
 	path := filepath.Join(os.Getenv("HOME"), ".darknode", "config.json")
 	options, err := renvm.NewOptionsFromFile(path)
@@ -57,6 +58,7 @@ func main() {
 	}
 	self := options.Peers[0]
 	network := options.Network
+	log.Printf("start running darknode-updater...")
 
 	// Check and update darknode binary periodically
 	go func() {
