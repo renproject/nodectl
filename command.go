@@ -3,7 +3,6 @@ package nodectl
 import (
 	"bufio"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -17,7 +16,6 @@ import (
 	"github.com/fatih/color"
 	"github.com/google/go-github/v36/github"
 	"github.com/renproject/nodectl/provider"
-	"github.com/renproject/nodectl/renvm"
 	"github.com/renproject/nodectl/util"
 	"github.com/urfave/cli/v2"
 )
@@ -326,28 +324,28 @@ tar -xzf v0.16.1.tar.gz && sudo cp ./wasmvm-0.16.1/api/libwasmvm.so /usr/lib/ &&
 	}
 	color.Green("- Updating [%v] to version %v", name, ver)
 
-	// Fetch the latest config template and update the darknode's config
-	optionsURL := util.OptionsURL(options.Network)
-	newOptions, err := renvm.OptionTemplate(optionsURL)
-	if err != nil {
-		return fmt.Errorf("fetching latest options template: %v", err)
-	}
-	newOptions.PrivKey = options.PrivKey
-	newOptions.Home = options.Home
-	newOptionsAsBytes, err := json.MarshalIndent(newOptions, "", " ")
-	if err != nil {
-		return fmt.Errorf("marshalling new options: %v", err)
-	}
-	path := filepath.Join(util.NodePath(name), "config.json")
-	if err := renvm.OptionsToFile(newOptions, path); err != nil {
-		return fmt.Errorf("update local config : %v", err)
-	}
+	// // Fetch the latest config template and update the darknode's config
+	// optionsURL := util.OptionsURL(options.Network)
+	// newOptions, err := renvm.OptionTemplate(optionsURL)
+	// if err != nil {
+	// 	return fmt.Errorf("fetching latest options template: %v", err)
+	// }
+	// newOptions.PrivKey = options.PrivKey
+	// newOptions.Home = options.Home
+	// newOptionsAsBytes, err := json.MarshalIndent(newOptions, "", " ")
+	// if err != nil {
+	// 	return fmt.Errorf("marshalling new options: %v", err)
+	// }
+	// path := filepath.Join(util.NodePath(name), "config.json")
+	// if err := renvm.OptionsToFile(newOptions, path); err != nil {
+	// 	return fmt.Errorf("update local config : %v", err)
+	// }
 
 	// Update binary and config in the remote instance
 	url := fmt.Sprintf("https://www.github.com/renproject/darknode-release/releases/download/%v", ver)
 	script := fmt.Sprintf(`curl -sL %v/darknode > ~/.darknode/bin/darknode-new && 
 mv ~/.darknode/bin/darknode-new ~/.darknode/bin/darknode &&
-chmod +x ~/.darknode/bin/darknode && echo '%v' > ~/.darknode/config.json && systemctl --user restart darknode`, url, string(newOptionsAsBytes))
+chmod +x ~/.darknode/bin/darknode && systemctl --user restart darknode`, url)
 	return util.RemoteRun(name, script, "darknode")
 }
 

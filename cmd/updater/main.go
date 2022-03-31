@@ -18,7 +18,6 @@ import (
 	"github.com/fatih/color"
 	"github.com/hashicorp/go-version"
 	"github.com/joho/godotenv"
-	"github.com/renproject/aw/wire"
 	"github.com/renproject/nodectl/renvm"
 	"github.com/renproject/nodectl/util"
 )
@@ -79,6 +78,7 @@ func main() {
 			default:
 				// Skip if binary update has been disabled
 				if store.Get(EnvUpdateBIN) != "1" {
+					log.Printf("skip binanry update since disabled")
 					break
 				}
 
@@ -97,6 +97,7 @@ func main() {
 				}
 
 				// Compare two versions
+				log.Printf("latestes version = %v, installed = %v", latestVer, installedVer)
 				res, err := VersionCompare(latestVer, installedVer)
 				if err != nil {
 					log.Printf("invalid version number, err = %v", err)
@@ -120,7 +121,7 @@ func main() {
 
 			interval, err := time.ParseDuration(os.Getenv("BIN_INTERVAL"))
 			if err != nil {
-				interval = 5 * time.Minute
+				interval = time.Minute
 			}
 			time.Sleep(interval)
 		}
@@ -135,6 +136,7 @@ func main() {
 			default:
 				// Skip if config update has been disabled
 				if store.Get(EnvUpdateConfig) != "1" {
+					log.Printf("skip config update since disabled")
 					break
 				}
 
@@ -157,6 +159,7 @@ func main() {
 				}
 				latestVerID := obj.VersionId
 
+				log.Printf("latest config version = %v, instaleld config version = %v", latestVerID, installedVerID)
 				// Update the config if needed
 				if &installedVerID == latestVerID {
 					break
@@ -167,7 +170,6 @@ func main() {
 					log.Printf("unable to fetch latest options from s3, err = %v", err)
 					break
 				}
-				options.Peers = append([]wire.Address{options.Peers[0]}, latestOptions.Peers...)
 				options.Chains = latestOptions.Chains
 				options.Selectors = latestOptions.Selectors
 				data, err := json.MarshalIndent(options, "", "    ")
@@ -200,6 +202,7 @@ func main() {
 			default:
 				// Skip if auto recovery has been disabled
 				if store.Get(EnvUpdateRecovery) != "1" {
+					log.Printf("skip config update since disabled")
 					break
 				}
 
@@ -210,7 +213,7 @@ func main() {
 					break
 				}
 
-				// Fetch the latest config version
+				// Fetch the latest snapshot version
 				input := &s3.GetObjectInput{
 					Bucket: aws.String("darknode.renproject.io"),
 					Key:    aws.String(fmt.Sprintf("%v/latest.tar.gz", network)),
@@ -222,6 +225,7 @@ func main() {
 				}
 				latestVerID := obj.VersionId
 
+				log.Printf("latest config version = %v, instaleld config version = %v", latestVerID, installedVerID)
 				if *latestVerID == installedVerID {
 					break
 				}
@@ -300,6 +304,7 @@ func VersionCompare(ver1Str, ver2Str string) (int, error) {
 }
 
 func RestartDarknodeService() {
+	log.Printf("restarting darknode service")
 	script := "systemctl --user restart darknode"
 	if err := util.Run("bash", "-c", script); err != nil {
 		log.Printf("unable to restart darknode service, err = %v", err)
