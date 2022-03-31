@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	DefaultBinInterval     = 12 * time.Hour
+	DefaultBinInterval     = time.Hour
 	DefaultConfigInterval  = time.Minute
 	DefaultRecoverInterval = time.Minute
 
@@ -73,21 +73,21 @@ func main() {
 				// Fetch the latest release version
 				latestVer, err := util.LatestRelease(network)
 				if err != nil {
-					log.Printf("unable to fetch latest release version, err = %v", err)
+					log.Printf("[ binary ] unable to fetch latest release version, err = %v", err)
 					break
 				}
 
 				// Get the installed version
 				installedVer := store.Get(KeyInstalledVersion)
 				if installedVer == "" {
-					log.Printf("unable to get installed version")
+					log.Printf("[ binary ] unable to get installed version")
 					break
 				}
 
 				// Compare two versions
 				res, err := VersionCompare(latestVer, installedVer)
 				if err != nil {
-					log.Printf("invalid version number, err = %v", err)
+					log.Printf("[ binary ] invalid version number, err = %v", err)
 					break
 				}
 				if res != 1 {
@@ -95,8 +95,8 @@ func main() {
 				}
 
 				// Update the binary if needed
-				log.Printf("[binary] Detect new release %v, current install = %v", latestVer, installedVer)
-				log.Printf("[binary] Updating the binary...")
+				log.Printf("[ binary ] detect new release %v, currently installed = %v", latestVer, installedVer)
+				log.Printf("[ binary ] updating the binary...")
 				updateScript := fmt.Sprintf("curl -sL https://github.com/renproject/darknode-release/releases/download/%v/darknode > darknode && chmod +x darknode && mv darknode ~/.darknode/bin/darknode", latestVer)
 				if err := util.Run("bash", "-c", updateScript); err != nil {
 					log.Printf("unable to download darknode binary, err = %v", err)
@@ -110,12 +110,12 @@ func main() {
 				// Restart the service
 				RestartDarknodeService()
 
-				log.Printf("[binary] ✅ Binary has been successfully updated to %v", latestVer)
+				log.Printf("[ binary ] ✅ binary has been successfully updated to %v", latestVer)
 			}
 
 			interval, err := time.ParseDuration(os.Getenv("BIN_INTERVAL"))
 			if err != nil {
-				interval = time.Minute
+				interval = DefaultBinInterval
 			}
 			time.Sleep(interval)
 		}
@@ -130,25 +130,23 @@ func main() {
 			default:
 				// Skip if config update has been disabled
 				if store.Get(EnvUpdateConfig) != "1" {
-					log.Printf("skip config update since disabled")
 					break
 				}
 
 				// Get the config version we have
 				installedVerID := store.Get(KeyConfigVersionID)
 				if installedVerID == "" {
-					log.Printf("unable to get darknode version ID")
+					log.Printf("[ config ] unable to get darknode version ID")
 					break
 				}
 
 				// Fetch the latest config version
 				latestVerID, err := fileVersionID(fmt.Sprintf("%v/config.json", network))
 				if err != nil {
-					log.Printf("unable to get config object from s3, err = %v", err)
+					log.Printf("[ config ] unable to get config object from s3, err = %v", err)
 					break
 				}
 
-				log.Printf("latest config version = %v, instaleld config version = %v", latestVerID, installedVerID)
 				// Update the config if needed
 				if installedVerID == latestVerID {
 					break
@@ -156,7 +154,7 @@ func main() {
 
 				latestOptions, err := renvm.OptionTemplate(util.OptionsURL(network))
 				if err != nil {
-					log.Printf("unable to fetch latest options from s3, err = %v", err)
+					log.Printf("[ config ] unable to fetch latest options from s3, err = %v", err)
 					break
 				}
 
@@ -172,7 +170,9 @@ func main() {
 					break
 				}
 
-				log.Printf("updating the config...")
+				log.Printf("[ config ] detect config update, latest config version = %v, installed config version = %v", latestVerID, installedVerID)
+
+				log.Printf("[ config ] updating the config...")
 				options.Chains = latestOptions.Chains
 				options.Selectors = latestOptions.Selectors
 				options.Peers = latestOptions.Peers
@@ -182,11 +182,17 @@ func main() {
 				}
 				copyConfig := fmt.Sprintf("echo '%s' > $HOME/.darknode/config.json", string(data))
 				if err := util.Run("bash", "-c", copyConfig); err != nil {
+					color.Red("[ config ] config upgrade failed, err = %v", err)
+					break
+				}
+				if err := store.Set(KeyConfigVersionID, latestVerID); err != nil {
+					log.Printf("[ config ] unable to update config versionID in storage, err = %v", err)
 					break
 				}
 
 				// Restart the service
 				RestartDarknodeService()
+				log.Printf("[ config ] ✅ config has been successfully updated")
 			}
 
 			interval, err := time.ParseDuration(os.Getenv("CONFIG_INTERVAL"))
@@ -206,39 +212,44 @@ func main() {
 			default:
 				// Skip if auto recovery has been disabled
 				if store.Get(EnvUpdateRecovery) != "1" {
-					log.Printf("skip snapshot update since disabled")
+					log.Printf("[recovery] skip snapshot update since disabled")
 					break
 				}
 
 				// Get the config version we have
 				installedVerID := store.Get(KeySnapshotVersionID)
 				if installedVerID == "" {
-					log.Printf("unable to get snapshot version ID")
+					log.Printf("[recovery] unable to get snapshot version ID")
 					break
 				}
 
 				// Fetch the latest snapshot version
 				latestVerID, err := fileVersionID(fmt.Sprintf("%v/latest.tar.gz", network))
 				if err != nil {
-					log.Printf("unable to get snapshot object from s3, err = %v", err)
+					log.Printf("[recovery] unable to get snapshot object from s3, err = %v", err)
 					break
 				}
 
-				log.Printf("latest config version = %v, instaleld config version = %v", latestVerID, installedVerID)
 				if latestVerID == installedVerID {
 					break
 				}
 
-				log.Printf("doing an recovery...")
+				log.Printf("[recovery] detect new snapshot, doing an recovery, old = %v, new = %v", installedVerID, latestVerID)
 				snapshotURL := util.SnapshotURL(options.Network, "")
 				script := fmt.Sprintf("cd $HOME/.darknode && rm -rf chain.wal genesis.json && mv db db-bak && curl -sSOJL %v && tar xzf latest.tar.gz && rm latest.tar.gz", snapshotURL)
 				if err := util.Run("bash", "-c", script); err != nil {
-					color.Red("failed to fetch snapshot file, err = %v", err)
+					color.Red("[recovery] recovery failed, err = %v", err)
 					return
+				}
+				if err := store.Set(KeySnapshotVersionID, latestVerID); err != nil {
+					log.Printf("[recovery] unable to update config versionID in storage, err = %v", err)
+					break
 				}
 
 				// Restart the service
 				RestartDarknodeService()
+
+				log.Printf("[recovery] ✅ successfully recovery using the snapshot")
 			}
 
 			interval, err := time.ParseDuration(os.Getenv("RECOVERY_INTERVAL"))
