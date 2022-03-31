@@ -57,7 +57,9 @@ func main() {
 		log.Printf("unable to fetch darknode config, err = %v", err)
 		return
 	}
+	self := options.Peers[0]
 	network := options.Network
+	log.Printf("network = %v", network)
 
 	// Initialise the s3 service
 	sess, err := session.NewSession(&aws.Config{
@@ -109,9 +111,13 @@ func main() {
 
 				// Update the binary if needed
 				log.Printf("updating the binary...")
-				updateScript := fmt.Sprintf("curl -sL https://github.com/renproject/darknode-release/releases/download/%v/darknode > ~/.darknode/bin/darknode", latestVer)
+				updateScript := fmt.Sprintf("curl -sL https://github.com/renproject/darknode-release/releases/download/%v/darknode > darknode && chmod +x darknode && mv darknode ~/.darknode/bin/darknode", latestVer)
 				if err := util.Run("bash", "-c", updateScript); err != nil {
 					log.Printf("unable to download darknode binary, err = %v", err)
+					break
+				}
+				if err := store.Set(KeyInstalledVersion, latestVer); err != nil {
+					log.Printf("unable to update the installed version in storage, err = %v", err)
 					break
 				}
 
@@ -164,12 +170,26 @@ func main() {
 				if &installedVerID == latestVerID {
 					break
 				}
-				log.Printf("updating the config...")
+
 				latestOptions, err := renvm.NewOptionsFromFile(util.OptionsURL(network))
 				if err != nil {
 					log.Printf("unable to fetch latest options from s3, err = %v", err)
 					break
 				}
+
+				// If latest config doesn't have us, do not update
+				found := false
+				for _, peer := range latestOptions.Peers {
+					if peer.Equal(&self) {
+						found = true
+						break
+					}
+				}
+				if !found {
+					break
+				}
+
+				log.Printf("updating the config...")
 				options.Chains = latestOptions.Chains
 				options.Selectors = latestOptions.Selectors
 				data, err := json.MarshalIndent(options, "", "    ")

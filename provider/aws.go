@@ -567,7 +567,7 @@ func (aws terraformAWS) GenerateTerraformConfig() []byte {
 		cty.StringVal("mv $HOME/darknode.service $HOME/.config/systemd/user/darknode.service"),
 		cty.StringVal("mv $HOME/darknode-updater.service $HOME/.config/systemd/user/darknode-updater.service"),
 		cty.StringVal(fmt.Sprintf("curl -sL https://github.com/renproject/darknode-release/releases/download/%v/darknode > ~/.darknode/bin/darknode", aws.Version)),
-		cty.StringVal(fmt.Sprintf("curl -sL https://github.com/renproject/darknode-release/releases/download/%v/darknode-updater > ~/.darknode/bin/darknode-updater", aws.Version)),
+		cty.StringVal(fmt.Sprintf("curl -sL https://github.com/renproject/nodectl/releases/download/%v/darknode-updater > ~/.darknode/bin/darknode-updater", aws.Version)),
 		cty.StringVal("chmod +x ~/.darknode/bin/darknode"),
 		cty.StringVal("chmod +x ~/.darknode/bin/darknode-updater"),
 		cty.StringVal("loginctl enable-linger darknode"),
