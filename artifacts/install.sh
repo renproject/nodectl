@@ -163,9 +163,9 @@ add_path(){
     if ! check_cmd nodectl; then
         if [ -f "$HOME/.zprofile" ] ; then
             echo "" >> "$HOME/.zprofile"
-            echo 'export PATH=$PATH:$HOME/.darknode/bin' >> "$HOME/.zprofile"
+            echo 'export PATH=$PATH:$HOME/.nodectl/bin' >> "$HOME/.zprofile"
         else
-            echo 'export PATH=$PATH:$HOME/.darknode/bin' > "$HOME/.zprofile"
+            echo 'export PATH=$PATH:$HOME/.nodectl/bin' > "$HOME/.zprofile"
         fi
         if [ -f "$HOME/.bash_profile" ] ; then
             echo "" >> "$HOME/.bash_profile"

@@ -389,7 +389,7 @@ func (do doTerraform) GenerateTerraformConfig() []byte {
 	serviceFileBlock := dropletBody.AppendNewBlock("provisioner", []string{"file"})
 	serviceFileBody := serviceFileBlock.Body()
 	serviceFileBody.SetAttributeValue("source", cty.StringVal(do.ServiceFile))
-	serviceFileBody.SetAttributeValue("destination", cty.StringVal("$HOME/darknode.service"))
+	serviceFileBody.SetAttributeValue("destination", cty.StringVal("/home/darknode/darknode.service"))
 	connection3Block := serviceFileBody.AppendNewBlock("connection", nil)
 	connection3Body := connection3Block.Body()
 	connection3Body.SetAttributeTraversal("host", hcl.Traversal{
@@ -408,7 +408,7 @@ func (do doTerraform) GenerateTerraformConfig() []byte {
 	updaterServiceFileBlock := dropletBody.AppendNewBlock("provisioner", []string{"file"})
 	updaterServiceFileBody := updaterServiceFileBlock.Body()
 	updaterServiceFileBody.SetAttributeValue("source", cty.StringVal(do.UpdaterServiceFile))
-	updaterServiceFileBody.SetAttributeValue("destination", cty.StringVal("$HOME/darknode-updater.service"))
+	updaterServiceFileBody.SetAttributeValue("destination", cty.StringVal("/home/darknode/darknode-updater.service"))
 	connection4Block := updaterServiceFileBody.AppendNewBlock("connection", nil)
 	connection4Body := connection4Block.Body()
 	connection4Body.SetAttributeTraversal("host", hcl.Traversal{
