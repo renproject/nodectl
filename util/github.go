@@ -9,16 +9,16 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/google/go-github/v36/github"
+	"github.com/google/go-github/v44/github"
 	"github.com/hashicorp/go-version"
 	"github.com/renproject/multichain"
 	"golang.org/x/oauth2"
 )
 
-// GithubClient initialize the github client. If an access token has been set as an environment,
-// it will use it for oauth to avoid rate limiting.
+// GithubClient initialize the Github client. If an access token has been set
+// as an environment, it will use it for oauth to avoid rate limiting.
 func GithubClient(ctx context.Context) *github.Client {
-	accessToken := os.Getenv("GITHUB_ACCESS_TOKEN")
+	accessToken := os.Getenv("GITHUB_TOKEN")
 	var client *http.Client
 	if accessToken != "" {
 		ts := oauth2.StaticTokenSource(
@@ -30,19 +30,42 @@ func GithubClient(ctx context.Context) *github.Client {
 	return github.NewClient(client)
 }
 
-func LatestRelease(network multichain.Network) (string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+// RateLimit checks if we get rate-limited by the Github API. It will return
+// how many remaining requests we can make before getting rate-limited
+func RateLimit(ctx context.Context, client *github.Client) (int, error) {
+	rl, response, err := client.RateLimits(ctx)
+	if err != nil {
+		return 0, err
+	}
+	if response.StatusCode != http.StatusOK {
+		return 0, fmt.Errorf("cannot get github API rate limit info")
+	}
+	return rl.Core.Remaining, nil
+}
+
+// LatestRelease fetches the name of the latest Darknode release of given
+// network.
+func LatestRelease(c context.Context, network multichain.Network) (string, error) {
+	ctx, cancel := context.WithTimeout(c, 5*time.Second)
 	defer cancel()
 
-	reg := regexp.MustCompile("^(\\d+.\\d+(.\\d+){0,1})-(mainnet|testnet|devnet)(\\d+)$")
+	client := GithubClient(ctx)
+	remaining, err := RateLimit(ctx, client)
+	if err != nil {
+		return "", err
+	}
+	if remaining < 10 {
+		return "", fmt.Errorf("rate limited by github API, please set the env `GITHUB_TOKEN` with a personal access token")
+	}
+
+	reg := regexp.MustCompile("^(\\d+.\\d+(.\\d+)?)-(mainnet|testnet|devnet)(\\d+)$")
 	maxIndex := 0
 	maxVersion, _ := version.NewVersion("0.0.0")
 	tag := ""
 
-	client := GithubClient(ctx)
 	opts := &github.ListOptions{
 		Page:    0,
-		PerPage: 100,
+		PerPage: 100, // 100 maximum
 	}
 	for {
 		releases, response, err := client.Repositories.ListReleases(ctx, "renproject", "darknode-release", opts)
@@ -63,18 +86,20 @@ func LatestRelease(network multichain.Network) (string, error) {
 			if len(matches) != reg.NumSubexp()+1 {
 				continue
 			}
+
+			// Continue if it's not a different network
+			releaseNetwork := multichain.Network(matches[3])
+			if releaseNetwork != network {
+				continue
+			}
+
+			// Parse the release version and index
 			releaseVersion, err := version.NewVersion(matches[1])
 			if err != nil {
 				continue
 			}
-			releaseNetwork := multichain.Network(matches[3])
 			releaseIndex, err := strconv.Atoi(matches[4])
 			if err != nil {
-				continue
-			}
-
-			// Continue if it's not a different network
-			if releaseNetwork != network {
 				continue
 			}
 

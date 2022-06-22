@@ -3,8 +3,10 @@ package nodectl
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -14,8 +16,10 @@ import (
 	"time"
 
 	"github.com/fatih/color"
-	"github.com/google/go-github/v36/github"
+	"github.com/google/go-github/v44/github"
+	"github.com/renproject/aw/wire"
 	"github.com/renproject/nodectl/provider"
+	"github.com/renproject/nodectl/renvm"
 	"github.com/renproject/nodectl/util"
 	"github.com/urfave/cli/v2"
 )
@@ -56,7 +60,11 @@ func updateServiceStatus(ctx *cli.Context, cmd string) error {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			errs[i] = util.RemoteRun(nodes[i], script, "darknode")
+			username, err := util.NodeInstanceUser(nodes[i])
+			if err != nil {
+				username = "darknode"
+			}
+			errs[i] = util.RemoteRun(nodes[i], script, username)
 			if errs[i] == nil {
 				color.Green("[%v] has been %v.", nodes[i], message)
 			} else {
@@ -185,6 +193,7 @@ func UpdateDarknode(ctx *cli.Context) error {
 	name := ctx.Args().First()
 	tags := ctx.String("tags")
 	dep := ctx.Bool("dep")
+	config := ctx.Bool("config")
 	version := strings.TrimSpace(ctx.String("version"))
 	nodes, err := util.ParseNodesFromNameAndTags(name, tags)
 	if err != nil {
@@ -207,7 +216,7 @@ func UpdateDarknode(ctx *cli.Context) error {
 		go func(i int) {
 			defer wg.Done()
 
-			errs[i] = update(nodes[i], version, dep)
+			errs[i] = update(nodes[i], version, dep, config)
 			if errs[i] == nil {
 				color.Green("- ✅ [%v] has been updated.", nodes[i])
 			}
@@ -285,7 +294,7 @@ func RecoverDarknode(ctx *cli.Context) error {
 	return nil
 }
 
-func update(name, ver string, dep bool) error {
+func update(name, ver string, config, dep bool) error {
 	// Update the dependency for darknode if needed
 	if dep {
 		color.Green("- Updating [%v] dependency", name)
@@ -324,29 +333,53 @@ tar -xzf v0.16.1.tar.gz && sudo cp ./wasmvm-0.16.1/api/libwasmvm.so /usr/lib/ &&
 	}
 	color.Green("- Updating [%v] to version %v", name, ver)
 
-	// // Fetch the latest config template and update the darknode's config
-	// optionsURL := util.OptionsURL(options.Network)
-	// newOptions, err := renvm.OptionTemplate(optionsURL)
-	// if err != nil {
-	// 	return fmt.Errorf("fetching latest options template: %v", err)
-	// }
-	// newOptions.PrivKey = options.PrivKey
-	// newOptions.Home = options.Home
-	// newOptionsAsBytes, err := json.MarshalIndent(newOptions, "", " ")
-	// if err != nil {
-	// 	return fmt.Errorf("marshalling new options: %v", err)
-	// }
-	// path := filepath.Join(util.NodePath(name), "config.json")
-	// if err := renvm.OptionsToFile(newOptions, path); err != nil {
-	// 	return fmt.Errorf("update local config : %v", err)
-	// }
+	// Fetch the latest config template and update the darknode's config
+	configScript := ""
+	if config {
+		optionsURL := util.OptionsURL(options.Network)
+		newOptions, err := renvm.OptionTemplate(optionsURL)
+		if err != nil {
+			return fmt.Errorf("fetching latest options template: %v", err)
+		}
+		newOptions.PrivKey = options.PrivKey
+		newOptions.Home = options.Home
+		newOptionsAsBytes, err := json.MarshalIndent(newOptions, "", " ")
+		if err != nil {
+			return fmt.Errorf("marshalling new options: %v", err)
+		}
+
+		// Check the config template has our address
+		_, index, err := util.FindSelfAddress(newOptions)
+		if err != nil {
+			return err
+		}
+		if index == -1 {
+			self, _, err := util.FindSelfAddress(options)
+			if err != nil {
+				return err
+			}
+			newOptions.Peers = append([]wire.Address{self}, newOptions.Peers...)
+		}
+
+		path := filepath.Join(util.NodePath(name), "config.json")
+		if err := renvm.OptionsToFile(newOptions, path); err != nil {
+			return fmt.Errorf("update local config : %v", err)
+		}
+		configScript = fmt.Sprintf(`&& echo '%v' > ~/.darknode/config.json`, string(newOptionsAsBytes))
+	}
 
 	// Update binary and config in the remote instance
+	username, err := util.NodeInstanceUser(name)
+	if err != nil {
+		username = "darknode"
+	}
 	url := fmt.Sprintf("https://www.github.com/renproject/darknode-release/releases/download/%v", ver)
 	script := fmt.Sprintf(`curl -sL %v/darknode > ~/.darknode/bin/darknode-new && 
 mv ~/.darknode/bin/darknode-new ~/.darknode/bin/darknode &&
-chmod +x ~/.darknode/bin/darknode && systemctl --user restart darknode`, url)
-	return util.RemoteRun(name, script, "darknode")
+chmod +x ~/.darknode/bin/darknode %v && systemctl --user restart darknode`, url, configScript)
+	log.Printf("script = %v", script)
+
+	return util.RemoteRun(name, script, username)
 }
 
 func validateVersion(version string) error {

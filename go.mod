@@ -16,7 +16,7 @@ require (
 	github.com/renproject/multichain v0.5.8
 	github.com/renproject/pack v0.2.12
 	github.com/renproject/surge v1.2.7
-	github.com/urfave/cli/v2 v2.3.0
+	github.com/urfave/cli/v2 v2.8.1
 	github.com/zclconf/go-cty v1.8.4
 	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5
 	golang.org/x/oauth2 v0.0.0-20220411215720-9780585627b5

@@ -11,6 +11,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/renproject/aw/wire"
 	"github.com/renproject/id"
 	"github.com/renproject/nodectl/renvm"
 )
@@ -111,6 +112,19 @@ func NodeProvider(name string) (string, error) {
 	return strings.TrimSpace(provider), err
 }
 
+func NodeInstanceUser(name string) (string, error) {
+	if name == "" {
+		return "", ErrEmptyName
+	}
+
+	cmd := fmt.Sprintf("cd %v && terraform output instance_user", NodePath(name))
+	username, err := CommandOutput(cmd)
+	if strings.HasPrefix(username, "\"") {
+		username = strings.Trim(strings.TrimSpace(username), "\"")
+	}
+	return strings.TrimSpace(username), err
+}
+
 // GetNodesByTags return the names of the nodes which have the given tags.
 func GetNodesByTags(tags string) ([]string, error) {
 	files, err := ioutil.ReadDir(filepath.Join(Directory, "darknodes"))
@@ -145,4 +159,18 @@ func ValidateTags(have, required string) bool {
 		}
 	}
 	return true
+}
+
+func FindSelfAddress(options renvm.Options) (wire.Address, int, error) {
+	selfSig := id.NewSignatory(options.PrivKey.PubKey())
+	for i, peer := range options.Peers {
+		peerSig, err := peer.Signatory()
+		if err != nil {
+			return wire.Address{}, -1, err
+		}
+		if peerSig.Equal(&selfSig) {
+			return peer, i, nil
+		}
+	}
+	return wire.Address{}, -1, nil
 }
