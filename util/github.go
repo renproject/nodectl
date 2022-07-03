@@ -45,10 +45,11 @@ func RateLimit(ctx context.Context, client *github.Client) (int, error) {
 
 // LatestRelease fetches the name of the latest Darknode release of given
 // network.
-func LatestRelease(c context.Context, network multichain.Network) (string, error) {
-	ctx, cancel := context.WithTimeout(c, 5*time.Second)
+func LatestRelease(network multichain.Network) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
+	// Check the rate limit status of github api
 	client := GithubClient(ctx)
 	remaining, err := RateLimit(ctx, client)
 	if err != nil {
@@ -58,6 +59,7 @@ func LatestRelease(c context.Context, network multichain.Network) (string, error
 		return "", fmt.Errorf("rate limited by github API, please set the env `GITHUB_TOKEN` with a personal access token")
 	}
 
+	// Construct the regex for release name
 	reg := regexp.MustCompile("^(\\d+.\\d+(.\\d+)?)-(mainnet|testnet|devnet)(\\d+)$")
 	maxIndex := 0
 	maxVersion, _ := version.NewVersion("0.0.0")

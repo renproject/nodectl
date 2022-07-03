@@ -3,7 +3,7 @@ module github.com/renproject/nodectl
 go 1.16
 
 require (
-	github.com/aws/aws-sdk-go v1.44.5
+	github.com/aws/aws-sdk-go v1.38.71
 	github.com/digitalocean/godo v1.79.0
 	github.com/ethereum/go-ethereum v1.10.16
 	github.com/fatih/color v1.12.0

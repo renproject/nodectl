@@ -88,21 +88,47 @@ type Provider interface {
 	Deploy(ctx *cli.Context) error
 }
 
+// ParseProvider parses the cloud provider from input arguments.
 func ParseProvider(ctx *cli.Context) (Provider, error) {
 	if ctx.Bool(NameAws) {
 		return NewAWS(ctx)
 	}
-
 	if ctx.Bool(NameDo) {
 		return NewDo(ctx)
 	}
 
-	// todo
-	// if ctx.Bool(NameGcp) {
-	// 	return NewGCP(ctx)
-	// }
-
 	return nil, ErrUnknownProvider
+}
+
+// ParseNetwork parses the network from input arguments.
+func ParseNetwork(ctx *cli.Context) (multichain.Network, error) {
+	network := multichain.Network(ctx.String("network"))
+	switch network {
+	case multichain.NetworkMainnet:
+	case multichain.NetworkTestnet:
+	case multichain.NetworkDevnet:
+	default:
+		return "", errors.New("unknown RenVM network")
+	}
+	return network, nil
+}
+
+// NodeSudoUsername returns the sudo username of the instance with given name.
+func NodeSudoUsername(name string) (string, error) {
+	p, err := util.NodeProvider(name)
+	if err != nil {
+		return "", err
+	}
+	var username string
+	switch p {
+	case NameAws:
+		username = "ubuntu"
+	case NameDo:
+		username = "root"
+	default:
+		username = "root"
+	}
+	return username, nil
 }
 
 // Validate the params which are general to all providers.
@@ -116,15 +142,10 @@ func validateCommonParams(ctx *cli.Context) error {
 		return fmt.Errorf("node [%v] already exist", name)
 	}
 
-	// Check the network
-	network := multichain.Network(ctx.String("network"))
-	switch network {
-	case multichain.NetworkMainnet:
-	case multichain.NetworkTestnet:
-	case multichain.NetworkDevnet:
-	case multichain.NetworkLocalnet:
-	default:
-		return errors.New("unknown RenVM network")
+	// Verify the input network
+	_, err := ParseNetwork(ctx)
+	if err != nil {
+		return err
 	}
 
 	// Verify the config file if user wants to use their own config
@@ -178,11 +199,11 @@ func initialize(ctx *cli.Context) error {
 }
 
 func applyTerraform(name string) error {
-	init := fmt.Sprintf("cd %v && terraform init", util.NodePath(name))
+	init := fmt.Sprintf("cd %v && %v init", util.NodePath(name), util.Terraform)
 	if err := util.Run("bash", "-c", init); err != nil {
 		return err
 	}
-	apply := fmt.Sprintf("cd %v && terraform apply -auto-approve -no-color", util.NodePath(name))
+	apply := fmt.Sprintf("cd %v && %v apply -auto-approve -no-color", util.NodePath(name), util.Terraform)
 	return util.Run("bash", "-c", apply)
 }
 

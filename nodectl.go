@@ -74,7 +74,7 @@ func App() *cli.App {
 				}
 
 				color.Green("Destroying your Darknode...")
-				destroy := fmt.Sprintf("cd %v && terraform destroy --auto-approve && cd .. && rm -rf %v", path, name)
+				destroy := fmt.Sprintf("cd %v &&  destroy --auto-approve && cd .. && rm -rf %v", path, name)
 				return util.Run("bash", "-c", destroy)
 			},
 		},

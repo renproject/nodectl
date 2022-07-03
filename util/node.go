@@ -43,7 +43,7 @@ func ParseNodesFromNameAndTags(name, tags string) ([]string, error) {
 
 // ValidateName validates the given name. It should
 // 1) Only contains letter, number, "-" and "_".
-// 2) Not more than 32 characters
+// 2) No more than 32 characters
 // 3) Not start or end with a whitespace.
 func ValidateName(name string) error {
 	if strings.TrimSpace(name) != name {
@@ -60,7 +60,8 @@ func ValidateName(name string) error {
 	return nil
 }
 
-// NodeExistence checks if there exists a node with given name.
+// NodeExistence checks if there exists a node with given name. It returns nil
+// if node exists.
 func NodeExistence(name string) error {
 	path := filepath.Join(Directory, "darknodes", name)
 	_, err := os.Stat(path)
@@ -112,17 +113,13 @@ func NodeProvider(name string) (string, error) {
 	return strings.TrimSpace(provider), err
 }
 
-func NodeInstanceUser(name string) (string, error) {
-	if name == "" {
-		return "", ErrEmptyName
-	}
-
-	cmd := fmt.Sprintf("cd %v && terraform output instance_user", NodePath(name))
+func NodeInstanceUser(name string) string {
+	cmd := fmt.Sprintf("cd %v && %v output instance_user", NodePath(name), Terraform)
 	username, err := CommandOutput(cmd)
-	if strings.HasPrefix(username, "\"") {
-		username = strings.Trim(strings.TrimSpace(username), "\"")
+	if err == nil {
+		return strings.Trim(strings.TrimSpace(username), "\"")
 	}
-	return strings.TrimSpace(username), err
+	return "darknode"
 }
 
 // GetNodesByTags return the names of the nodes which have the given tags.

@@ -17,6 +17,9 @@ import (
 // Directory is the directory address of the cli and all nodes data.
 var Directory = filepath.Join(os.Getenv("HOME"), ".nodectl")
 
+// Terraform is the path of the terraform binary.
+var Terraform = filepath.Join(os.Getenv("HOME"), ".nodectl", "bin", "terraform")
+
 // NodePath return the absolute directory of the node with given name.
 func NodePath(name string) string {
 	return filepath.Join(Directory, "darknodes", name)

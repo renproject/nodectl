@@ -60,10 +60,7 @@ func updateServiceStatus(ctx *cli.Context, cmd string) error {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			username, err := util.NodeInstanceUser(nodes[i])
-			if err != nil {
-				username = "darknode"
-			}
+			username := util.NodeInstanceUser(nodes[i])
 			errs[i] = util.RemoteRun(nodes[i], script, username)
 			if errs[i] == nil {
 				color.Green("[%v] has been %v.", nodes[i], message)
@@ -195,15 +192,37 @@ func UpdateDarknode(ctx *cli.Context) error {
 	dep := ctx.Bool("dep")
 	config := ctx.Bool("config")
 	version := strings.TrimSpace(ctx.String("version"))
+
+	// Parse nodes from the name/tags
 	nodes, err := util.ParseNodesFromNameAndTags(name, tags)
 	if err != nil {
 		return err
 	}
+	options, err := util.NodeOptions(nodes[0])
+	if err != nil {
+		return err
+	}
+	network := options.Network
 
 	// Use latest version if user doesn't provide a version number
 	if version != "" {
 		if err := validateVersion(version); err != nil {
 			return err
+		}
+	} else {
+		version, err = util.LatestRelease(network)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Get the config template if we need to update the config
+	var newOptions renvm.Options
+	if config {
+		optionsURL := util.OptionsURL(options.Network)
+		newOptions, err = renvm.OptionTemplate(optionsURL)
+		if err != nil {
+			return fmt.Errorf("fetching latest options template: %v", err)
 		}
 	}
 
@@ -216,7 +235,7 @@ func UpdateDarknode(ctx *cli.Context) error {
 		go func(i int) {
 			defer wg.Done()
 
-			errs[i] = update(nodes[i], version, dep, config)
+			errs[i] = update(nodes[i], version, dep, newOptions)
 			if errs[i] == nil {
 				color.Green("- ✅ [%v] has been updated.", nodes[i])
 			}
@@ -294,85 +313,33 @@ func RecoverDarknode(ctx *cli.Context) error {
 	return nil
 }
 
-func update(name, ver string, config, dep bool) error {
+func update(name, ver string, dep bool, template renvm.Options) error {
 	// Update the dependency for darknode if needed
 	if dep {
 		color.Green("- Updating [%v] dependency", name)
-		p, err := util.NodeProvider(name)
-		if err != nil {
-			return err
-		}
-		var username string
-		switch p {
-		case provider.NameAws:
-			username = "ubuntu"
-		case provider.NameDo:
-			username = "root"
-		default:
-			username = "root"
-		}
-		script := `wget -q https://github.com/CosmWasm/wasmvm/archive/v0.16.1.tar.gz &&
-tar -xzf v0.16.1.tar.gz && sudo cp ./wasmvm-0.16.1/api/libwasmvm.so /usr/lib/ && rm -r v0.16.1.tar.gz wasmvm-0.16.1`
-		if err := util.RemoteRun(name, script, username); err != nil {
+		if err := updateDependency(name); err != nil {
 			return err
 		}
 	}
 
-	// Get the node options
-	options, err := util.NodeOptions(name)
-	if err != nil {
-		return fmt.Errorf("reading config file: %v", err)
-	}
-
-	// Fetch the latest release if not provided
-	if ver == "" {
-		ver, err = util.LatestRelease(options.Network)
-		if err != nil {
-			return err
-		}
-	}
 	color.Green("- Updating [%v] to version %v", name, ver)
 
 	// Fetch the latest config template and update the darknode's config
 	configScript := ""
-	if config {
-		optionsURL := util.OptionsURL(options.Network)
-		newOptions, err := renvm.OptionTemplate(optionsURL)
-		if err != nil {
-			return fmt.Errorf("fetching latest options template: %v", err)
-		}
-		newOptions.PrivKey = options.PrivKey
-		newOptions.Home = options.Home
-		newOptionsAsBytes, err := json.MarshalIndent(newOptions, "", " ")
-		if err != nil {
-			return fmt.Errorf("marshalling new options: %v", err)
-		}
-
-		// Check the config template has our address
-		_, index, err := util.FindSelfAddress(newOptions)
+	if len(template.Peers) > 0 {
+		newOptions, err := updateConfig(name, template)
 		if err != nil {
 			return err
 		}
-		if index == -1 {
-			self, _, err := util.FindSelfAddress(options)
-			if err != nil {
-				return err
-			}
-			newOptions.Peers = append([]wire.Address{self}, newOptions.Peers...)
-		}
-
-		path := filepath.Join(util.NodePath(name), "config.json")
-		if err := renvm.OptionsToFile(newOptions, path); err != nil {
-			return fmt.Errorf("update local config : %v", err)
+		newOptionsAsBytes, err := json.MarshalIndent(newOptions, "", " ")
+		if err != nil {
+			return err
 		}
 		configScript = fmt.Sprintf(`&& echo '%v' > ~/.darknode/config.json`, string(newOptionsAsBytes))
 	}
 
 	// Update binary and config in the remote instance
-	username, err := util.NodeInstanceUser(name)
-	if err != nil {
-		username = "darknode"
-	}
+	username := util.NodeInstanceUser(name)
 	url := fmt.Sprintf("https://www.github.com/renproject/darknode-release/releases/download/%v", ver)
 	script := fmt.Sprintf(`curl -sL %v/darknode > ~/.darknode/bin/darknode-new && 
 mv ~/.darknode/bin/darknode-new ~/.darknode/bin/darknode &&
@@ -405,4 +372,48 @@ func validateVersion(version string) error {
 		}
 		return fmt.Errorf("cannot connect to github, code = %v, err = %v", response.StatusCode, string(data))
 	}
+}
+
+func updateDependency(name string) error {
+	color.Green("- Updating [%v] dependency", name)
+	username, err := provider.NodeSudoUsername(name)
+	if err != nil {
+		return err
+	}
+	script := `wget -q https://github.com/CosmWasm/wasmvm/archive/v0.16.1.tar.gz &&
+tar -xzf v0.16.1.tar.gz && 
+sudo cp ./wasmvm-0.16.1/api/libwasmvm.so /usr/lib/ && 
+rm -r v0.16.1.tar.gz wasmvm-0.16.1`
+	return util.RemoteRun(name, script, username)
+}
+
+func updateConfig(name string, template renvm.Options) (renvm.Options, error) {
+	options, err := util.NodeOptions(name)
+	if err != nil {
+		return renvm.Options{}, fmt.Errorf("reading config file: %v", err)
+	}
+	newOptions := template
+	newOptions.PrivKey = options.PrivKey
+	newOptions.Home = options.Home
+
+	// Check the config template has our address
+	_, index, err := util.FindSelfAddress(newOptions)
+	if err != nil {
+		return renvm.Options{}, err
+	}
+	// Add our address to the peer list if not found from the config template
+	if index == -1 {
+		self, _, err := util.FindSelfAddress(options)
+		if err != nil {
+			return renvm.Options{}, err
+		}
+		newOptions.Peers = append([]wire.Address{self}, newOptions.Peers...)
+	}
+
+	// Update our local version of the config file
+	path := filepath.Join(util.NodePath(name), "config.json")
+	if err := renvm.OptionsToFile(newOptions, path); err != nil {
+		return renvm.Options{}, fmt.Errorf("update local config : %v", err)
+	}
+	return newOptions, nil
 }
