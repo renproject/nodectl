@@ -81,7 +81,7 @@ func App() *cli.App {
 		{
 			Name:  "update",
 			Usage: "Update your Darknode to the latest version",
-			Flags: []cli.Flag{TagsFlag, VersionFlag, DependencyFlag},
+			Flags: []cli.Flag{TagsFlag, VersionFlag, DependencyFlag, ConfigUpdateFlag},
 			Action: func(c *cli.Context) error {
 				return UpdateDarknode(c)
 			},

@@ -80,7 +80,7 @@ func NodeIP(name string) (string, error) {
 		return "", ErrEmptyName
 	}
 
-	cmd := fmt.Sprintf("cd %v && terraform output ip", NodePath(name))
+	cmd := fmt.Sprintf("cd %v && %v output ip", NodePath(name), Terraform)
 	ip, err := CommandOutput(cmd)
 	if err != nil {
 		return "", err
@@ -105,7 +105,7 @@ func NodeProvider(name string) (string, error) {
 		return "", ErrEmptyName
 	}
 
-	cmd := fmt.Sprintf("cd %v && terraform output provider", NodePath(name))
+	cmd := fmt.Sprintf("cd %v && %v output provider", NodePath(name), Terraform)
 	provider, err := CommandOutput(cmd)
 	if strings.HasPrefix(provider, "\"") {
 		provider = strings.Trim(strings.TrimSpace(provider), "\"")

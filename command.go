@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -344,7 +343,6 @@ func update(name, ver string, dep bool, template renvm.Options) error {
 	script := fmt.Sprintf(`curl -sL %v/darknode > ~/.darknode/bin/darknode-new && 
 mv ~/.darknode/bin/darknode-new ~/.darknode/bin/darknode &&
 chmod +x ~/.darknode/bin/darknode %v && systemctl --user restart darknode`, url, configScript)
-	log.Printf("script = %v", script)
 
 	return util.RemoteRun(name, script, username)
 }

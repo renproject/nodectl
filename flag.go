@@ -51,6 +51,10 @@ var (
 		Name:  "dep",
 		Usage: "Update the dependency for your darknode",
 	}
+	ConfigUpdateFlag = &cli.BoolFlag{
+		Name:  "config",
+		Usage: "Update the config file for your darknodes",
+	}
 )
 
 // AWS flags
