@@ -87,6 +87,14 @@ func App() *cli.App {
 			},
 		},
 		{
+			Name:  "upload",
+			Usage: "Upload template file to remote storage",
+			Flags: []cli.Flag{ConfigFlag, SnapshotFlag, AwsAccessKeyFlag, AwsSecretKeyFlag, NetworkFlag},
+			Action: func(c *cli.Context) error {
+				return Upload(c)
+			},
+		},
+		{
 			Name:  "recover",
 			Usage: "Recover you Darknode from broken state",
 			Flags: []cli.Flag{TagsFlag, SnapshotFlag, ForceFlag},

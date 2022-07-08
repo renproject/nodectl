@@ -64,12 +64,14 @@ var (
 		Usage: "AWS will be used to provision the darknode",
 	}
 	AwsAccessKeyFlag = &cli.StringFlag{
-		Name:  "aws-access-key",
-		Usage: "AWS access `key` for programmatic access",
+		Name:    "aws-access-key",
+		Aliases: []string{"access-key", "ak"},
+		Usage:   "AWS access `key` for programmatic access",
 	}
 	AwsSecretKeyFlag = &cli.StringFlag{
-		Name:  "aws-secret-key",
-		Usage: "AWS secret `key` for programmatic access",
+		Name:    "aws-secret-key",
+		Aliases: []string{"secret-key", "sk"},
+		Usage:   "AWS secret `key` for programmatic access",
 	}
 	AwsRegionFlag = &cli.StringFlag{
 		Name:        "aws-region",
