@@ -5,7 +5,7 @@ set -u
 main() {
     # Update this when minimum terraform version is changed.
     min_terraform_ver="1.0.2"
-    cur_terraform_ver="1.1.7"
+    cur_terraform_ver="1.2.4"
 
     # Exit if `nodectl` is already installed
     if check_cmd nodectl; then
@@ -16,7 +16,7 @@ main() {
     echo "Installing nodectl ..."
 
     # Check prerequisites
-    prerequisites $min_terraform_ver || return 1
+    prerequisites || return 1
 
     # Check system information
     ostype="$(uname -s | tr '[:upper:]' '[:lower:]')"
@@ -33,13 +33,11 @@ main() {
     if [ $cputype = "x86_64" ];then
       cputype="amd64"
     fi
-    if ! check_cmd terraform; then
-        terraform_url="https://releases.hashicorp.com/terraform/${cur_terraform_ver}/terraform_${cur_terraform_ver}_${ostype}_${cputype}.zip"
-        ensure downloader "$terraform_url" "$HOME/.nodectl/bin/terraform.zip"
-        ensure unzip -qq "$HOME/.nodectl/bin/terraform.zip" -d "$HOME/.nodectl/bin"
-        ensure chmod +x "$HOME/.nodectl/bin/terraform"
-        rm "$HOME/.nodectl/bin/terraform.zip"
-    fi
+    terraform_url="https://releases.hashicorp.com/terraform/${cur_terraform_ver}/terraform_${cur_terraform_ver}_${ostype}_${cputype}.zip"
+    ensure downloader "$terraform_url" "$HOME/.nodectl/bin/terraform.zip"
+    ensure unzip -qq "$HOME/.nodectl/bin/terraform.zip" -d "$HOME/.nodectl/bin"
+    ensure chmod +x "$HOME/.nodectl/bin/terraform"
+    rm "$HOME/.nodectl/bin/terraform.zip"
     progressBar 50 100
 
     # Download nodectl binary
@@ -83,30 +81,6 @@ prerequisites() {
     if ! check_cmd curl; then
         if ! check_cmd wget; then
           err "need 'curl' or 'wget' (command not found)"
-        fi
-    fi
-
-    # Check if terraform has been installed.
-    # If so, make sure it's newer than required version
-    if check_cmd terraform; then
-        version="$(terraform --version | grep 'Terraform v' | cut -d "v" -f2)"
-        major="$(echo $version | cut -d. -f1)"
-        minor="$(echo $version | cut -d. -f2)"
-        patch="$(echo $version | cut -d. -f3)"
-        requiredMajor="$(echo $1 | cut -d. -f1)"
-        requiredMinor="$(echo $1 | cut -d. -f2)"
-        requiredPatch="$(echo $1 | cut -d. -f3)"
-
-        if [ "$major" -lt "$requiredMajor" ]; then
-            echo "Please upgrade your terraform to version above $min_terraform_ver"
-        elif [ "$major" -eq "$requiredMajor" ]; then
-            if [ "$minor" -lt "$requiredMinor" ]; then
-                echo "Please upgrade your terraform to version above $min_terraform_ver"
-            elif [ "$minor" -eq "$requiredMinor" ]; then
-                if [ "$patch" -lt "$requiredPatch" ]; then
-                    echo "Please upgrade your terraform to version above $min_terraform_ver"
-                fi
-            fi
         fi
     fi
 }

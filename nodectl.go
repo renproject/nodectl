@@ -115,8 +115,9 @@ func App() *cli.App {
 				if err != nil {
 					return err
 				}
+				instanceName := util.NodeInstanceUser(name)
 				keyPath := filepath.Join(util.NodePath(name), "ssh_keypair")
-				return util.Run("ssh", "-i", keyPath, "darknode@"+ip, "-oStrictHostKeyChecking=no")
+				return util.Run("ssh", "-i", keyPath, fmt.Sprintf("%v@%v", instanceName, ip), "-oStrictHostKeyChecking=no")
 			},
 		},
 		{
