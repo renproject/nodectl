@@ -174,8 +174,5 @@ nodectl upload --config ~/config.json --network testnet --access-key XXXXX --sec
 
 If you have setup your credentials in `~/.aws` folder, `nodectl` will automaticall read from it and you don't need to pass the keys through the command line.  
 
-```sh
-nodectl ssh my-first-darknode
-```
 
 
