@@ -110,6 +110,25 @@ The `nodectl` supports deploying multiple Darknodes. To list all available Darkn
 nodectl list
 ```
 
+### Update your Darknode
+
+To update your darknode to the latest release, open a terminal and run:
+
+```sh
+nodectl update my-first-darknode
+```
+
+You can also update the config file at the same time by passing the `--config` flag
+```sh
+nodectl update --config my-first-darknode
+```
+> This will update the darknode config against the remote config template, so make sure you have upload the template first
+
+To update darknodes in batch, you can specify a tag instead of darknode name:
+```sh
+nodectl update --config --tags testnet
+```
+
 ### Start/Stop/Restart Darknode
 
 To turn off your darknode, open a terminal and run:
@@ -144,4 +163,19 @@ To access your Darknode using SSH, open a terminal and run:
 ```sh
 nodectl ssh my-first-darknode
 ```
+
+### Upload config template
+
+To upload the config template to remote storage, open a terminal and run:
+```sh
+nodectl upload --config ~/config.json --network testnet --access-key XXXXX --secret-key XXXXX
+```
+> Make sure you remove the private key from the config file and specify a network
+
+If you have setup your credentials in `~/.aws` folder, `nodectl` will automaticall read from it and you don't need to pass the keys through the command line.  
+
+```sh
+nodectl ssh my-first-darknode
+```
+
 
